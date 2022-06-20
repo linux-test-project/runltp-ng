@@ -1,0 +1,22 @@
+[run]
+omit =
+    *tests*
+    *test_*
+    *.tox*
+
+[paths]
+source = ltp
+
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Don't complain about missing debug-only code:
+    def __repr__
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain about python3 support
+    unicode = str
+    basestring = str
