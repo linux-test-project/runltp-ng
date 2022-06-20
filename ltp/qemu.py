@@ -22,7 +22,6 @@ from .sut import SUTTimeoutError
 
 
 # pylint: disable=too-many-instance-attributes
-# pylint: disable=consider-using-with
 class QemuSUT(SUT):
     """
     Qemu SUT spawn a new VM using qemu and execute commands inside it.
@@ -221,8 +220,8 @@ class QemuSUT(SUT):
 
         while not stdout.endswith(message):
             events = self._poller.poll(1)
-            for fd, _ in events:
-                if fd != self._proc.stdout.fileno():
+            for fdesc, _ in events:
+                if fdesc != self._proc.stdout.fileno():
                     continue
 
                 data = self._read_stdout(1)
@@ -251,7 +250,11 @@ class QemuSUT(SUT):
 
         return stdout
 
+    # pylint: disable=too-many-branches
     def _inner_stop(self, force: bool = False, timeout: float = 30) -> None:
+        """
+        Inner implementation for both stop/force_stop.
+        """
         if not self.is_running:
             return
 
@@ -259,6 +262,9 @@ class QemuSUT(SUT):
         self._stop = True
 
         t_secs = max(timeout, 0)
+
+        # some pylint versions don't recognize threading::Lock::locked
+        # pylint: disable=no-member
 
         try:
             # stop command first
@@ -292,8 +298,8 @@ class QemuSUT(SUT):
                 start_t = time.time()
                 while self._proc.poll() is None:
                     events = self._poller.poll(1)
-                    for fd, _ in events:
-                        if fd != self._proc.stdout.fileno():
+                    for fdesc, _ in events:
+                        if fdesc != self._proc.stdout.fileno():
                             continue
 
                         self._read_stdout(1)
