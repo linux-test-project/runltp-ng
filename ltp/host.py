@@ -45,7 +45,7 @@ class HostSUT(SUT):
     def is_running(self) -> bool:
         return self._initialized
 
-    def communicate(self) -> None:
+    def communicate(self, timeout: float = 3600) -> None:
         if self.is_running:
             raise SUTError("SUT is running")
 
@@ -58,6 +58,7 @@ class HostSUT(SUT):
         t_start = time.time()
         t_secs = max(timeout, 0)
 
+        # pylint: disable=no-member
         while self._cmd_lock.locked():
             if time.time() - t_start >= t_secs:
                 raise SUTTimeoutError("Timeout waiting for command to stop")
@@ -124,7 +125,6 @@ class HostSUT(SUT):
                 t_secs,
                 command)
 
-            # pylint: disable=consider-using-with
             self._proc = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -149,8 +149,8 @@ class HostSUT(SUT):
 
                 while True:
                     events = poller.poll()
-                    for fd, _ in events:
-                        if fd != self._proc.stdout.fileno():
+                    for fdesc, _ in events:
+                        if fdesc != self._proc.stdout.fileno():
                             break
 
                         data = self._read_stdout(1024)
