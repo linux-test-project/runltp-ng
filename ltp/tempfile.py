@@ -71,4 +71,3 @@ class TempRotator:
             target_is_directory=True)
 
         return folder
-
