@@ -39,26 +39,6 @@ class EventHandler:
         """
         raise NotImplementedError()
 
-    def link(self, event_name: str, callback: callable) -> None:
-        """
-        Link ``callback`` to an existing event that has to be fired.
-        :param event_name: name of the event
-        :type event_name: str
-        :param callback: callback to call on ``fire``
-        :type callback: callable
-        """
-        raise NotImplementedError()
-
-    def unlink(self, event_name: str, callback: callable) -> None:
-        """
-        Unlink ``callback`` to an existing event.
-        :param event_name: name of the event
-        :type event_name: str
-        :param callback: linked callback
-        :type callback: callable
-        """
-        raise NotImplementedError()
-
     def fire(self, event_name: str, *args: list, **kwargs: dict) -> None:
         """
         Fire a specific event.
@@ -106,10 +86,9 @@ class SyncEventHandler(EventHandler):
         if not callback:
             raise ValueError("callback is empty")
 
-        if self.is_registered(event_name):
-            raise ValueError(f"{event_name} is already registered")
+        if not self.is_registered(event_name):
+            self._events[event_name] = []
 
-        self._events[event_name] = []
         self._events[event_name].append(callback)
 
     def unregister(self, event_name: str) -> None:
@@ -126,44 +105,6 @@ class SyncEventHandler(EventHandler):
 
         self._events.pop(event_name)
 
-    def link(self, event_name: str, callback: callable) -> None:
-        """
-        Link ``callback`` to an existing event that has to be fired.
-        :param event_name: name of the event
-        :type event_name: str
-        :param callback: callback to call on ``fire``
-        :type callback: callable
-        """
-        if not event_name:
-            raise ValueError("event_name is empty")
-
-        if not callback:
-            raise ValueError("callback is empty")
-
-        if not self.is_registered(event_name):
-            raise ValueError(f"{event_name} is not registered")
-
-        self._events[event_name].append(callback)
-
-    def unlink(self, event_name: str, callback: callable) -> None:
-        """
-        Unlink ``callback`` to an existing event.
-        :param event_name: name of the event
-        :type event_name: str
-        :param callback: linked callback
-        :type callback: callable
-        """
-        if not event_name:
-            raise ValueError("event_name is empty")
-
-        if not callback:
-            raise ValueError("callback is empty")
-
-        if not self.is_registered(event_name):
-            raise ValueError(f"{event_name} is not registered")
-
-        self._events[event_name].remove(callback)
-
     def fire(self, event_name: str, *args: list, **kwargs: dict) -> None:
         """
         Fire a specific event.
@@ -178,7 +119,8 @@ class SyncEventHandler(EventHandler):
             raise ValueError("event_name is empty")
 
         if not self.is_registered(event_name):
-            raise ValueError(f"{event_name} is not registered")
+            # ignore raising the error
+            return
 
         for callback in self._events[event_name]:
             callback(*args, **kwargs)
