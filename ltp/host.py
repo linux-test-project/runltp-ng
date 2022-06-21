@@ -36,6 +36,7 @@ class HostSUT(SUT):
         self._env = env
         self._iobuffer = iobuffer
         self._cmd_lock = threading.Lock()
+        self._fetch_lock = threading.Lock()
 
     @property
     def name(self) -> str:
@@ -51,47 +52,44 @@ class HostSUT(SUT):
 
         self._initialized = True
 
-    def _wait_for_stop(self, timeout: float = 30) -> None:
+    # some pylint versions don't recognize threading.Lock.locked()
+    # pylint: disable=no-member
+    def _inner_stop(self, sig: int, timeout: float = 30) -> None:
         """
         Wait process to stop.
         """
-        t_start = time.time()
+        if not self.is_running:
+            return
+
+        self._stop = True
+
+        if self._proc:
+            self._logger.info("Terminating process with %s", sig)
+            self._proc.send_signal(sig)
+
         t_secs = max(timeout, 0)
 
-        # pylint: disable=no-member
+        t_start = time.time()
+        while self._fetch_lock.locked():
+            if time.time() - t_start >= t_secs:
+                raise SUTTimeoutError(
+                    "Timeout waiting for command to stop")
+
+        t_start = time.time()
         while self._cmd_lock.locked():
             if time.time() - t_start >= t_secs:
-                raise SUTTimeoutError("Timeout waiting for command to stop")
+                raise SUTTimeoutError(
+                    "Timeout waiting for command to stop")
 
-    def stop(self, timeout: int = 30) -> None:
-        if not self.is_running:
-            return
-
-        self._stop = True
-
-        if self._proc:
-            self._logger.info("Terminating process")
-            self._proc.send_signal(signal.SIGHUP)
-            self._logger.info("Process terminated")
-
-        self._wait_for_stop(timeout=timeout)
+        self._logger.info("Process terminated")
 
         self._initialized = False
 
-    def force_stop(self, timeout: int = 30) -> None:
-        if not self.is_running:
-            return
+    def stop(self, timeout: float = 30) -> None:
+        self._inner_stop(signal.SIGHUP, timeout)
 
-        self._stop = True
-
-        if self._proc:
-            self._logger.info("Killing process")
-            self._proc.kill()
-            self._logger.info("Process killed")
-
-        self._wait_for_stop(timeout=timeout)
-
-        self._initialized = False
+    def force_stop(self, timeout: float = 30) -> None:
+        self._inner_stop(signal.SIGKILL, timeout)
 
     def _read_stdout(self, size: int) -> bytes:
         """
@@ -188,7 +186,7 @@ class HostSUT(SUT):
             self,
             target_path: str,
             local_path: str,
-            timeout: int = 3600) -> None:
+            timeout: float = 3600) -> None:
         if not target_path:
             raise ValueError("target path is empty")
 
@@ -198,32 +196,35 @@ class HostSUT(SUT):
         if not os.path.isfile(target_path):
             raise ValueError("target file doesn't exist")
 
-        self._logger.info("Copy '%s' to '%s'", target_path, local_path)
+        with self._fetch_lock:
+            self._logger.info("Copy '%s' to '%s'", target_path, local_path)
 
-        self._stop = False
+            self._stop = False
 
-        try:
-            start_t = time.time()
+            try:
+                start_t = time.time()
 
-            with open(target_path, 'rb') as ftarget:
-                with open(local_path, 'wb+') as flocal:
-                    data = ftarget.read(1024)
-
-                    while data != b'' and not self._stop:
-                        flocal.write(data)
+                with open(target_path, 'rb') as ftarget:
+                    with open(local_path, 'wb+') as flocal:
                         data = ftarget.read(1024)
 
-                        if time.time() - start_t >= timeout:
-                            self._logger.info(
-                                "Transfer timed out after %d seconds", timeout)
+                        while data != b'' and not self._stop:
+                            flocal.write(data)
+                            data = ftarget.read(1024)
 
-                            raise SUTTimeoutError(
-                                f"Timeout during transfer (timeout={timeout}):"
-                                f" {target_path} -> {local_path}")
-        except IOError as err:
-            raise SUTError(err)
-        finally:
-            if self._stop:
-                self._logger.info("Copy stopped")
-            else:
-                self._logger.info("File copied")
+                            if time.time() - start_t >= timeout:
+                                self._logger.info(
+                                    "Transfer timed out after %d seconds",
+                                    timeout)
+
+                                raise SUTTimeoutError(
+                                    "Timeout during transfer"
+                                    f" (timeout={timeout}):"
+                                    f" {target_path} -> {local_path}")
+            except IOError as err:
+                raise SUTError(err)
+            finally:
+                if self._stop:
+                    self._logger.info("Copy stopped")
+                else:
+                    self._logger.info("File copied")
