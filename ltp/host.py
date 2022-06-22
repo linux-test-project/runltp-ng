@@ -12,7 +12,6 @@ import signal
 import logging
 import threading
 import subprocess
-from typing import IO
 from .sut import SUT
 from .sut import SUTError
 from .sut import SUTTimeoutError
@@ -23,18 +22,15 @@ class HostSUT(SUT):
     SUT implementation using host's shell.
     """
 
-    def __init__(
-            self,
-            cwd: str = None,
-            env: dict = None,
-            iobuffer: IO = None) -> None:
+    def __init__(self, cwd: str = None, env: dict = None) -> None:
+        super().__init__()
+
         self._logger = logging.getLogger("ltp.host")
         self._proc = None
         self._stop = False
         self._initialized = False
         self._cwd = cwd
         self._env = env
-        self._iobuffer = iobuffer
         self._cmd_lock = threading.Lock()
         self._fetch_lock = threading.Lock()
 
@@ -100,9 +96,10 @@ class HostSUT(SUT):
 
         data = os.read(self._proc.stdout.fileno(), size)
 
-        if self._iobuffer:
-            self._iobuffer.write(data)
-            self._iobuffer.flush()
+        # write on stdout buffers
+        for buffer in self._stdout_buffers.buffers:
+            buffer.write(data)
+            buffer.flush()
 
         rdata = data.decode(encoding="utf-8", errors="ignore")
         rdata = rdata.replace('\r', '')

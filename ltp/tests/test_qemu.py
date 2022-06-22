@@ -44,8 +44,9 @@ class TestQemuSUTISA(_TestSUT):
             tmpdir=str(tmpdir),
             image=TEST_QEMU_IMAGE,
             password=TEST_QEMU_PASSWORD,
-            iobuffer=Printer(),
             serial="isa")
+
+        runner.stdout += Printer()
 
         yield runner
 
@@ -66,8 +67,9 @@ class TestQemuSUTVirtIO(_TestSUT):
             tmpdir=str(tmpdir),
             image=TEST_QEMU_IMAGE,
             password=TEST_QEMU_PASSWORD,
-            iobuffer=Printer(),
             serial="virtio")
+
+        runner.stdout += Printer()
 
         yield runner
 

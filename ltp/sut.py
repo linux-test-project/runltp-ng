@@ -5,6 +5,7 @@
 
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
+from typing import Any
 from ltp import LTPException
 
 
@@ -20,11 +21,62 @@ class SUTTimeoutError(LTPException):
     """
 
 
+class IOBuffer:
+    """
+    IO stdout buffer. The API is similar to ``IO`` types.
+    """
+
+    def write(self, data: bytes) -> None:
+        """
+        Write data.
+        """
+        raise NotImplementedError()
+
+    def flush(self) -> None:
+        """
+        Flush data.
+        """
+        raise NotImplementedError()
+
+
+class IOBufferList:
+    """
+    IO buffers list that can be used to process data arriving from stdout.
+    """
+
+    def __init__(self) -> None:
+        self._buffers = []
+
+    @property
+    def buffers(self) -> list:
+        """
+        Internal buffers list.
+        """
+        return self._buffers
+
+    def __iadd__(self, item: IOBuffer) -> Any:
+        """
+        Add a new ``IOBuffer`` implementation to buffers list.
+        """
+        self._buffers.append(item)
+        return self
+
+    def __isub__(self, item: IOBuffer) -> Any:
+        """
+        Remove an ``IOBuffer`` object from the buffers list.
+        """
+        self._buffers.remove(item)
+        return self
+
+
 class SUT:
     """
     SUT abstraction class. It could be a remote host, a local host, a virtual
     machine instance, etc.
     """
+
+    def __init__(self) -> None:
+        self._stdout_buffers = IOBufferList()
 
     @property
     def is_running(self) -> bool:
@@ -32,6 +84,23 @@ class SUT:
         Return True if SUT is running.
         """
         raise NotImplementedError()
+
+    @property
+    def stdout(self) -> IOBufferList:
+        """
+        Return the list of ``IOBuffer`` objects pointing to stdout.
+        """
+        return self._stdout_buffers
+
+    @stdout.setter
+    def stdout(self, item: IOBufferList) -> IOBufferList:
+        """
+        Setter for stdout buffers.
+        """
+        if not item:
+            raise ValueError("item is empty")
+
+        self._stdout_buffers = item
 
     @property
     def name(self) -> str:

@@ -37,7 +37,8 @@ class Printer:
 
 @pytest.fixture
 def sut():
-    sut = HostSUT(iobuffer=Printer())
+    sut = HostSUT()
+    sut.stdout += Printer()
     yield sut
 
     if sut.is_running:

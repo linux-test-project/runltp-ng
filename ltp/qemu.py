@@ -30,6 +30,8 @@ class QemuSUT(SUT):
     """
 
     def __init__(self, **kwargs) -> None:
+        super().__init__()
+
         self._logger = logging.getLogger("ltp.qemu")
         self._tmpdir = kwargs.get("tmpdir", None)
         self._image = kwargs.get("image", None)
@@ -41,7 +43,6 @@ class QemuSUT(SUT):
         self._smp = kwargs.get("smp", "2")
         self._virtfs = kwargs.get("virtfs", None)
         self._serial_type = kwargs.get("serial", "isa")
-        self._iobuffer = kwargs.get("iobuffer", None)
         self._env = kwargs.get("env", None)
         self._cwd = kwargs.get("cwd", None)
         self._proc = None
@@ -182,9 +183,10 @@ class QemuSUT(SUT):
 
         data = os.read(self._proc.stdout.fileno(), size)
 
-        if self._iobuffer:
-            self._iobuffer.write(data)
-            self._iobuffer.flush()
+        # write on stdout buffers
+        for buffer in self._stdout_buffers.buffers:
+            buffer.write(data)
+            buffer.flush()
 
         rdata = data.decode(encoding="utf-8", errors="ignore")
         rdata = rdata.replace('\r', '')
