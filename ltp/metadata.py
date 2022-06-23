@@ -53,6 +53,7 @@ class Runtest(Metadata):
         self._suites = {}
         self._runtest_folder = runtest_folder
 
+    # pylint: disable=too-many-locals
     def read_suite(self, suite_name: str) -> Suite:
         if not suite_name:
             raise ValueError("suite_name is empty")
