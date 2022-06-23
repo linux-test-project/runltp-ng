@@ -2,109 +2,30 @@
 Unittests for Dispatcher implementations.
 """
 import os
-import time
+import math
 import stat
-import shutil
-import random
 import pytest
-from typing import IO
-from ltp.sut import SUT, SUTTimeoutError
-from ltp.dispatcher import SerialDispatcher
+from unittest.mock import MagicMock
+from unittest.mock import PropertyMock
+from ltp.host import HostSUT
 from ltp.events import SyncEventHandler
+from ltp.dispatcher import SerialDispatcher
+from ltp.dispatcher import SuiteTimeoutError
 
 
-class MySUT(SUT):
+class TestSerialDispatcher:
     """
-    Internal implementation of SUT.
-    """
-
-    def __init__(self, stdout: bytes, iobuffer: IO = None) -> None:
-        self._stdout = stdout
-        self._iobuffer = iobuffer
-        self._running = False
-
-    def stop(self, timeout: float = 30) -> None:
-        if timeout < 0:
-            raise SUTTimeoutError("Timeout during stop")
-
-    def force_stop(self, timeout: float = 30) -> None:
-        if timeout < 0:
-            raise SUTTimeoutError("Timeout during stop")
-
-    def is_running(self) -> bool:
-        return self._running
-
-    def communicate(self, timeout: float = 3600) -> None:
-        if timeout < 0:
-            raise SUTTimeoutError("Timeout during communicate")
-
-        self._running = True
-
-    def run_command(self, command: str, timeout: float = 3600) -> dict:
-        t_start = time.time()
-
-        if self._iobuffer:
-            length = len(self._stdout)
-            index = 0
-
-            while index < length:
-                size = random.randint(1, 1024)
-                data = None
-
-                if index + size > length:
-                    data = self._stdout[index:]
-                    index = length
-                else:
-                    data = self._stdout[index: index + size]
-                    index += size
-
-                self._iobuffer.write(data)
-                self._iobuffer.flush()
-
-        if timeout < 0:
-            raise SUTTimeoutError(f"Timeout running '{command}' execution")
-
-        t_end = time.time() - t_start
-
-        ret = {
-            "command": command,
-            "stdout": self._stdout,
-            "returncode": 0,
-            "timeout": timeout,
-            "exec_time": t_end,
-        }
-
-        return ret
-
-    def fetch_file(self, target_path: str, local_path: str, timeout: float = 3600) -> None:
-        shutil.copyfile(target_path, local_path)
-
-class _TestDispatcher:
-    """
-    Test Dispatcher API.
+    Test SerialDispatcher implementation.
     """
 
     @pytest.fixture
-    def sut(self):
-        """
-        Mocked SUT to test dispatcher.
-        """
-        raise NotImplementedError()
-
-    @pytest.fixture
-    def dispatcher(self, sut):
-        """
-        Dispatcher object to communicate with.
-        """
-        raise NotImplementedError()
-
-    @pytest.fixture(autouse=True)
     def prepare_tmpdir(self, tmpdir):
         """
         Prepare the temporary directory adding suites and tests.
         """
         # create testcases folder
-        testcases = tmpdir.mkdir("testcases").mkdir("bin")
+        ltpdir = tmpdir.mkdir("ltp")
+        testcases = ltpdir.mkdir("testcases").mkdir("bin")
 
         script_sh = testcases.join("script.sh")
         script_sh.write(
@@ -123,62 +44,315 @@ class _TestDispatcher:
         os.chmod(str(script_sh), st.st_mode | stat.S_IEXEC)
 
         # create runtest folder
-        root = tmpdir.mkdir("runtest")
+        runtest = ltpdir.mkdir("runtest")
 
-        suitefile = root.join("dirsuite0")
+        suitefile = runtest.join("dirsuite0")
         suitefile.write("dir01 script.sh 1 0 0 0 0")
 
-        suitefile = root.join("dirsuite1")
+        suitefile = runtest.join("dirsuite1")
         suitefile.write("dir02 script.sh 0 1 0 0 0")
 
-        suitefile = root.join("dirsuite2")
+        suitefile = runtest.join("dirsuite2")
         suitefile.write("dir03 script.sh 0 0 0 1 0")
 
-        suitefile = root.join("dirsuite3")
+        suitefile = runtest.join("dirsuite3")
         suitefile.write("dir04 script.sh 0 0 1 0 0")
 
-        suitefile = root.join("dirsuite4")
+        suitefile = runtest.join("dirsuite4")
         suitefile.write("dir05 script.sh 0 0 0 0 1")
 
         # create scenario_groups folder
-        scenario_dir = tmpdir.mkdir("scenario_groups")
+        scenario_dir = ltpdir.mkdir("scenario_groups")
 
         scenario_def = scenario_dir.join("default")
         scenario_def.write("dirsuite0\ndirsuite1")
 
         scenario_def = scenario_dir.join("network")
         scenario_def.write("dirsuite2\ndirsuite3\ndirsuite4\ndirsuite5")
-                                                                   
-    def test_exec_suites(self, dispatcher):
-        """
-        Test exec_suites method.
-        """
-        results = dispatcher.exec_suites([
-            "dirsuite0",
-            "dirsuite1",
-            "dirsuite2",
-        ])
 
-class TestSerialDispatcher(_TestDispatcher):
-    """
-    Test SerialDispatcher implementation.
-    """
+    def test_bad_constructor(self, tmpdir):
+        """
+        Test constructor with bad arguments.
+        """
+        sut = HostSUT()
 
-    @pytest.fixture
-    def sut(self):
-        """
-        Mocked SUT to test dispatcher.
-        """
-        return MySUT("", None)
+        with pytest.raises(ValueError):
+            SerialDispatcher(
+                tmpdir=str(tmpdir),
+                ltpdir=None,
+                sut=sut,
+                events=SyncEventHandler())
 
-    @pytest.fixture
-    def dispatcher(self, sut, tmpdir):
+        with pytest.raises(ValueError):
+            SerialDispatcher(
+                ltpdir=str(tmpdir),
+                tmpdir="this_folder_doesnt_exist",
+                sut=sut,
+                events=SyncEventHandler())
+
+        with pytest.raises(ValueError):
+            SerialDispatcher(
+                tmpdir=str(tmpdir),
+                ltpdir=str(tmpdir),
+                sut=None,
+                events=SyncEventHandler())
+
+        with pytest.raises(ValueError):
+            SerialDispatcher(
+                tmpdir=str(tmpdir),
+                ltpdir=str(tmpdir),
+                sut=sut,
+                events=None)
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_exec_suites_bad_args(self, tmpdir):
         """
-        Dispatcher object to communicate with.
+        Test exec_suites() method with bad arguments.
         """
-        events = SyncEventHandler()
-        return SerialDispatcher(
-            ltpdir=str(tmpdir),
+        sut = HostSUT()
+        sut.communicate()
+
+        dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
+            ltpdir=str(tmpdir / "ltp"),
             sut=sut,
-            events=events)
+            events=SyncEventHandler())
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        try:
+            with pytest.raises(ValueError):
+                dispatcher.exec_suites(None)
+
+            with pytest.raises(ValueError):
+                dispatcher.exec_suites(["this_suite_doesnt_exist"])
+        finally:
+            sut.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_exec_suites(self, tmpdir):
+        """
+        Test exec_suites() method.
+        """
+        testcases = str(tmpdir / "ltp" / "testcases" / "bin")
+        env = {}
+        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
+            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
+
+        sut = HostSUT(cwd=testcases, env=env)
+        sut.communicate()
+
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(tmpdir / "ltp"),
+            sut=sut,
+            events=SyncEventHandler())
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        try:
+            results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
+
+            assert len(results) == 2
+
+            assert results[0].suite.name == "dirsuite0"
+            assert results[0].tests_results[0].passed == 1
+            assert results[0].tests_results[0].failed == 0
+            assert results[0].tests_results[0].skipped == 0
+            assert results[0].tests_results[0].warnings == 0
+            assert results[0].tests_results[0].broken == 0
+            assert results[0].tests_results[0].return_code == 0
+            assert results[0].tests_results[0].exec_time > 0
+
+            assert results[1].suite.name == "dirsuite2"
+            assert results[1].tests_results[0].passed == 0
+            assert results[1].tests_results[0].failed == 0
+            assert results[1].tests_results[0].skipped == 1
+            assert results[1].tests_results[0].warnings == 0
+            assert results[1].tests_results[0].broken == 0
+            assert results[1].tests_results[0].return_code == 0
+            assert results[1].tests_results[0].exec_time > 0
+        finally:
+            sut.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_exec_suites_suite_timeout(self, tmpdir):
+        """
+        Test exec_suites() method when suite timeout occurs.
+        """
+        ltpdir = tmpdir / "ltp"
+        runtest = ltpdir / "runtest"
+
+        sleepsuite = runtest.join("sleepsuite")
+        sleepsuite.write("sleep sleep 2")
+
+        sut = HostSUT()
+        sut.communicate()
+
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(ltpdir),
+            sut=sut,
+            events=SyncEventHandler(),
+            suite_timeout=0.5,
+            test_timeout=15)
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        try:
+            with pytest.raises(SuiteTimeoutError):
+                dispatcher.exec_suites(suites=["sleepsuite"])
+        finally:
+            sut.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_exec_suites_test_timeout(self, tmpdir):
+        """
+        Test exec_suites() method when test timeout occurs.
+        """
+        ltpdir = tmpdir / "ltp"
+        runtest = ltpdir / "runtest"
+
+        sleepsuite = runtest.join("sleepsuite")
+        sleepsuite.write("sleep sleep 2")
+
+        sut = HostSUT()
+        sut.communicate()
+
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(ltpdir),
+            sut=sut,
+            events=SyncEventHandler(),
+            suite_timeout=15,
+            test_timeout=0.5)
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        try:
+            ret = dispatcher.exec_suites(suites=["sleepsuite"])
+        finally:
+            sut.stop()
+
+        assert ret[0].tests_results[0].return_code == -1
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_kernel_tained(self, tmpdir):
+        """
+        Test tained kernel recognition.
+        """
+        ltpdir = tmpdir / "ltp"
+
+        sut = HostSUT()
+        HostSUT.name = PropertyMock(return_value="testing_host")
+        sut.communicate()
+
+        events = SyncEventHandler()
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(ltpdir),
+            sut=sut,
+            events=events,
+            suite_timeout=0.5,
+            test_timeout=15)
+
+        dispatcher._save_dmesg = MagicMock()
+
+        class TainChecker:
+            def __init__(self, dispatcher, bit, msg) -> None:
+                self._dispatcher = dispatcher
+                self._bit = bit
+                self._msg = msg
+                self._first = True
+                self.tained_msg = None
+                self.rebooted = False
+
+            def kernel_tained(self, msg: str):
+                if self._first:
+                    self._first = False
+                    self._dispatcher._check_tained = MagicMock(
+                        return_value=(self._bit, [self._msg]))
+
+                self.tained_msg = msg
+
+            def sut_restart(self, name: str):
+                self.rebooted = True
+
+        try:
+            for i in range(0, 18):
+                bit = math.pow(2, i)
+                msg = SerialDispatcher.TAINED_MSG[i]
+
+                dispatcher._check_tained = MagicMock(return_value=(0, [""]))
+
+                checker = TainChecker(dispatcher, bit, msg)
+                events.register("kernel_tained", checker.kernel_tained)
+                events.register("sut_restart", checker.sut_restart)
+
+                dispatcher.exec_suites(suites=["dirsuite0"])
+
+                events.unregister("kernel_tained")
+                events.unregister("sut_restart")
+
+                assert msg == checker.tained_msg
+                assert checker.rebooted
+        finally:
+            sut.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_kernel_panic(self, tmpdir):
+        """
+        Test kernel panic recognition.
+        """
+        ltpdir = tmpdir / "ltp"
+        runtest = ltpdir / "runtest"
+
+        # just write "Kernel panic" on stdout and trigger the dispatcher
+        crashsuite = runtest.join("crashme")
+        crashsuite.write(f"kernel_panic echo Kernel panic")
+
+        sut = HostSUT()
+        # hack: force the SUT to be recognized as a different host
+        # so we can reboot it
+        HostSUT.name = PropertyMock(return_value="testing_host")
+        sut.communicate()
+
+        events = SyncEventHandler()
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(ltpdir),
+            sut=sut,
+            events=events,
+            suite_timeout=10,
+            test_timeout=10)
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        class PanicChecker:
+            def __init__(self) -> None:
+                self.panic = False
+                self.rebooted = False
+
+            def kernel_panic(self):
+                self.panic = True
+
+            def sut_restart(self, name: str):
+                self.rebooted = True
+
+        checker = PanicChecker()
+        events.register("kernel_panic", checker.kernel_panic)
+        events.register("sut_restart", checker.sut_restart)
+
+        try:
+            ret = dispatcher.exec_suites(suites=["crashme"])
+
+            assert ret[0].tests_results[0].return_code == -1
+            assert checker.panic
+            assert checker.rebooted
+        finally:
+            sut.stop()
