@@ -40,33 +40,34 @@ class Runtest(Metadata):
     Handle runtest files.
     """
 
-    def __init__(self, ltpdir: str) -> None:
+    def __init__(self, runtest_folder: str) -> None:
         """
-        :param ltpdir: LTP root directory
-        :type ltpdir: str
+        :param runtest_folder: LTP runtest directory
+        :type runtest_folder: str
         """
         self._logger = logging.getLogger("ltp.runtest")
 
-        runtest_folder = os.path.join(ltpdir, "runtest")
-
         if not os.path.isdir(runtest_folder):
-            raise ValueError("ltpdir is not an LTP root folder")
-
-        self._logger.debug("Reading suites from %s", runtest_folder)
+            raise ValueError("runtest_folder is not a directory")
 
         self._suites = {}
-        for suite in os.listdir(runtest_folder):
-            subdir = os.path.join(ltpdir, "runtest", suite)
-            if not os.path.isfile(subdir):
-                continue
-
-            self._suites[suite] = subdir
-
-        self._logger.debug(self._suites)
+        self._runtest_folder = runtest_folder
 
     def read_suite(self, suite_name: str) -> Suite:
         if not suite_name:
             raise ValueError("suite_name is empty")
+
+        if not self._suites:
+            self._logger.debug("Reading suites from %s", self._runtest_folder)
+
+            for suite in os.listdir(self._runtest_folder):
+                subdir = os.path.join(self._runtest_folder, suite)
+                if not os.path.isfile(subdir):
+                    continue
+
+                self._suites[suite] = subdir
+
+            self._logger.debug(self._suites)
 
         if suite_name not in self._suites:
             raise ValueError(f"{suite_name} suite is not available")

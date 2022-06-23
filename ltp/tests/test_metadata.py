@@ -34,7 +34,7 @@ class TestRuntest:
         """
         Test read_suite method.
         """
-        meta = Runtest(str(tmpdir))
+        meta = Runtest(str(tmpdir / "runtest"))
 
         with pytest.raises(ValueError):
             meta.read_suite("dirsuiteXYZ")
@@ -43,7 +43,7 @@ class TestRuntest:
         """
         Test read_suite method.
         """
-        meta = Runtest(str(tmpdir))
+        meta = Runtest(str(tmpdir / "runtest"))
 
         suite = meta.read_suite("suite01")
 
