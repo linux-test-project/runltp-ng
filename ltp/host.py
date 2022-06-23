@@ -12,7 +12,7 @@ import signal
 import logging
 import threading
 import subprocess
-from .sut import SUT
+from .sut import SUT, IOBuffer
 from .sut import SUTError
 from .sut import SUTTimeoutError
 
@@ -42,7 +42,9 @@ class HostSUT(SUT):
     def is_running(self) -> bool:
         return self._initialized
 
-    def communicate(self, timeout: float = 3600) -> None:
+    def communicate(self,
+                    timeout: float = 3600,
+                    iobuffer: IOBuffer = None) -> None:
         if self.is_running:
             raise SUTError("SUT is running")
 
@@ -81,13 +83,19 @@ class HostSUT(SUT):
 
         self._initialized = False
 
-    def stop(self, timeout: float = 30) -> None:
+    def stop(
+        self,
+        timeout: float = 30,
+        iobuffer: IOBuffer = None) -> None:
         self._inner_stop(signal.SIGHUP, timeout)
 
-    def force_stop(self, timeout: float = 30) -> None:
+    def force_stop(
+        self,
+        timeout: float = 30,
+        iobuffer: IOBuffer = None) -> None:
         self._inner_stop(signal.SIGKILL, timeout)
 
-    def _read_stdout(self, size: int) -> bytes:
+    def _read_stdout(self, size: int, iobuffer: IOBuffer = None) -> bytes:
         """
         Read data from stdout.
         """
@@ -97,16 +105,20 @@ class HostSUT(SUT):
         data = os.read(self._proc.stdout.fileno(), size)
 
         # write on stdout buffers
-        for buffer in self._stdout_buffers.buffers:
-            buffer.write(data)
-            buffer.flush()
+        if iobuffer:
+            iobuffer.write(data)
+            iobuffer.flush()
 
-        rdata = data.decode(encoding="utf-8", errors="ignore")
+        rdata = data.decode(encoding="utf-8", errors="replace")
         rdata = rdata.replace('\r', '')
 
         return rdata
 
-    def run_command(self, command: str, timeout: float = 3600) -> dict:
+    # pylint: disable=too-many-locals
+    def run_command(self,
+                    command: str,
+                    timeout: float = 3600,
+                    iobuffer: IOBuffer = None) -> dict:
         if not command:
             raise ValueError("command is empty")
 
@@ -143,12 +155,12 @@ class HostSUT(SUT):
                     select.POLLERR)
 
                 while True:
-                    events = poller.poll(0.5)
+                    events = poller.poll(1)
                     for fdesc, _ in events:
                         if fdesc != self._proc.stdout.fileno():
                             break
 
-                        data = self._read_stdout(1024)
+                        data = self._read_stdout(1024, iobuffer)
                         if data:
                             stdout += data
 

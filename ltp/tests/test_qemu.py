@@ -3,31 +3,12 @@ Test SUT implementations.
 """
 import os
 import pytest
-import logging
 from ltp.qemu import QemuSUT
 from ltp.tests.sut import _TestSUT
 
 
 TEST_QEMU_IMAGE = os.environ.get("TEST_QEMU_IMAGE", None)
 TEST_QEMU_PASSWORD = os.environ.get("TEST_QEMU_PASSWORD", None)
-
-
-class Printer:
-    """
-    stdout printer.
-    """
-    def __init__(self) -> None:
-        self._logger = logging.getLogger("test.qemu")
-        self._line = ""
-
-    def write(self, data):
-        self._line += data.decode(encoding="utf-8", errors="ignore")
-        if data == b'\n':
-            self._logger.info(self._line[:-1])
-            self._line = ""
-
-    def flush(self):
-        pass
 
 
 @pytest.mark.qemu
@@ -45,8 +26,6 @@ class TestQemuSUTISA(_TestSUT):
             image=TEST_QEMU_IMAGE,
             password=TEST_QEMU_PASSWORD,
             serial="isa")
-
-        runner.stdout += Printer()
 
         yield runner
 
@@ -68,8 +47,6 @@ class TestQemuSUTVirtIO(_TestSUT):
             image=TEST_QEMU_IMAGE,
             password=TEST_QEMU_PASSWORD,
             serial="virtio")
-
-        runner.stdout += Printer()
 
         yield runner
 

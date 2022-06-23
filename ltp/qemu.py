@@ -16,7 +16,7 @@ import secrets
 import logging
 import threading
 import subprocess
-from .sut import SUT
+from .sut import SUT, IOBuffer
 from .sut import SUTError
 from .sut import SUTTimeoutError
 
@@ -174,7 +174,7 @@ class QemuSUT(SUT):
 
         return self._proc.poll() is None
 
-    def _read_stdout(self, size: int) -> bytes:
+    def _read_stdout(self, size: int, iobuffer: IOBuffer) -> bytes:
         """
         Read data from stdout.
         """
@@ -184,11 +184,11 @@ class QemuSUT(SUT):
         data = os.read(self._proc.stdout.fileno(), size)
 
         # write on stdout buffers
-        for buffer in self._stdout_buffers.buffers:
-            buffer.write(data)
-            buffer.flush()
+        if iobuffer:
+            iobuffer.write(data)
+            iobuffer.flush()
 
-        rdata = data.decode(encoding="utf-8", errors="ignore")
+        rdata = data.decode(encoding="utf-8", errors="replace")
         rdata = rdata.replace('\r', '')
 
         return rdata
@@ -209,7 +209,11 @@ class QemuSUT(SUT):
             if not self._stop:
                 raise SUTError(err)
 
-    def _wait_for(self, message: str, timeout: float) -> str:
+    def _wait_for(
+        self,
+        message: str,
+        timeout: float,
+        iobuffer: IOBuffer) -> str:
         """
         Wait a string from stdout.
         """
@@ -226,7 +230,7 @@ class QemuSUT(SUT):
                 if fdesc != self._proc.stdout.fileno():
                     continue
 
-                data = self._read_stdout(1)
+                data = self._read_stdout(1, iobuffer)
                 if data:
                     stdout += data
 
@@ -239,21 +243,25 @@ class QemuSUT(SUT):
 
         return stdout
 
-    def _exec(self, command: str, timeout: float) -> str:
+    def _exec(self, command: str, timeout: float, iobuffer: IOBuffer) -> str:
         """
         Execute a command and wait for command prompt.
         """
         self._logger.debug("Execute (timeout %f): %s", timeout, repr(command))
 
         self._write_stdin(command)
-        self._wait_for(command, 5) # ignore echo
+        self._wait_for(command, 5, iobuffer) # ignore echo
 
-        stdout = self._wait_for(self._ps1, timeout)
+        stdout = self._wait_for(self._ps1, timeout, iobuffer)
 
         return stdout
 
     # pylint: disable=too-many-branches
-    def _inner_stop(self, force: bool = False, timeout: float = 30) -> None:
+    def _inner_stop(
+        self,
+        force: bool = False,
+        timeout: float = 30,
+        iobuffer: IOBuffer = None) -> None:
         """
         Inner implementation for both stop/force_stop.
         """
@@ -271,7 +279,7 @@ class QemuSUT(SUT):
         try:
             # stop command first
             if self._cmd_lock.locked():
-                self._logger.info("Stop running command")t_secs
+                self._logger.info("Stop running command")
 
                 # send interrupt character (equivalent of CTRL+C)
                 self._write_stdin('\x03')
@@ -294,7 +302,7 @@ class QemuSUT(SUT):
             if self._logged_in:
                 self._logger.info("Poweroff virtual machine")
 
-                self._exec("\n", 5)
+                self._exec("\n", 5, iobuffer)
                 self._write_stdin("poweroff\n")
 
                 start_t = time.time()
@@ -304,7 +312,7 @@ class QemuSUT(SUT):
                         if fdesc != self._proc.stdout.fileno():
                             continue
 
-                        self._read_stdout(1)
+                        self._read_stdout(1, iobuffer)
 
                     if time.time() - start_t >= t_secs:
                         break
@@ -333,13 +341,22 @@ class QemuSUT(SUT):
         finally:
             self._stop = False
 
-    def stop(self, timeout: float = 30) -> None:
-        self._inner_stop(force=False, timeout=timeout)
+    def stop(
+        self,
+        timeout: float = 30,
+        iobuffer: IOBuffer = None) -> None:
+        self._inner_stop(force=False, timeout=timeout, iobuffer=iobuffer)
 
-    def force_stop(self, timeout: float = 30) -> None:
-        self._inner_stop(force=True, timeout=timeout)
+    def force_stop(
+        self,
+        timeout: float = 30,
+        iobuffer: IOBuffer = None) -> None:
+        self._inner_stop(force=True, timeout=timeout, iobuffer=iobuffer)
 
-    def communicate(self, timeout: float = 3600) -> None:
+    def communicate(
+        self,
+        timeout: float = 3600,
+        iobuffer: IOBuffer = None) -> None:
         if not shutil.which(self._qemu_cmd):
             raise SUTError(f"Command not found: {self._qemu_cmd}")
 
@@ -370,18 +387,24 @@ class QemuSUT(SUT):
                 select.POLLERR)
 
             try:
-                self._wait_for("login:", timeout)
+                self._wait_for("login:", timeout, iobuffer)
                 self._write_stdin("root\n")
-                self._wait_for("Password:", 5)
+                self._wait_for("Password:", 5, iobuffer)
                 self._write_stdin(f"{self._password}\n")
-                self._wait_for("#", 5)
+                self._wait_for("#", 5, iobuffer)
 
-                ret = self.run_command(f"export PS1={self._ps1}", timeout=5)
+                ret = self.run_command(
+                    f"export PS1={self._ps1}",
+                    timeout=5,
+                    iobuffer=iobuffer)
                 if ret["returncode"] != 0:
                     raise SUTError("Can't setup prompt string")
 
                 if self._cwd:
-                    ret = self.run_command(f"cd {self._cwd}", timeout=5)
+                    ret = self.run_command(
+                        f"cd {self._cwd}",
+                        timeout=5,
+                        iobuffer=iobuffer)
                     if ret["returncode"] != 0:
                         raise SUTError("Can't setup current working directory")
 
@@ -389,7 +412,8 @@ class QemuSUT(SUT):
                     for key, value in self._env.items():
                         ret = self.run_command(
                             f"export {key}={value}",
-                            timeout=5)
+                            timeout=5,
+                            iobuffer=iobuffer)
                         if ret["returncode"] != 0:
                             raise SUTError(f"Can't setup env {key}={value}")
 
@@ -398,7 +422,8 @@ class QemuSUT(SUT):
                 if self._virtfs:
                     ret = self.run_command(
                         "mount -t 9p -o trans=virtio host0 /mnt",
-                        timeout=10)
+                        timeout=10,
+                        iobuffer=iobuffer)
                     if ret["returncode"] != 0:
                         raise SUTError("Failed to mount virtfs")
 
@@ -407,7 +432,11 @@ class QemuSUT(SUT):
                 if not self._stop:
                     raise SUTError(err)
 
-    def run_command(self, command: str, timeout: float = 3600) -> dict:
+    def run_command(
+        self,
+        command: str,
+        timeout: float = 3600,
+        iobuffer: IOBuffer = None) -> dict:
         if not command:
             raise ValueError("command is empty")
 
@@ -421,11 +450,11 @@ class QemuSUT(SUT):
 
             # send command
             t_start = time.time()
-            stdout = self._exec(f"{command}\n", timeout)
+            stdout = self._exec(f"{command}\n", timeout, iobuffer)
             t_end = time.time() - t_start
 
             # read return code
-            reply = self._exec(f"echo $?-{code}\n", 5)
+            reply = self._exec(f"echo $?-{code}\n", 5, iobuffer)
 
             match = re.search(f"^(?P<retcode>\\d+)-{code}", reply)
             if not match:

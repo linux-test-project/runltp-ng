@@ -10,6 +10,40 @@ from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
 
 
+class Printer:
+    """
+    stdout printer.
+    """
+
+    def __init__(self) -> None:
+        self._logger = logging.getLogger("test.host")
+        self._line = ""
+
+    def write(self, data):
+        data_str = data.decode(encoding="utf-8", errors="replace")
+
+        if len(data_str) == 1:
+            self._line += data_str
+            if data_str == "\n":
+                self._logger.info(self._line[:-1])
+                self._line = ""
+        else:
+            lines = data_str.split('\n')
+            for line in lines[:-1]:
+                self._line += line
+                self._logger.info(self._line)
+                self._line = ""
+
+            self._line = lines[-1]
+
+            if data_str.endswith('\n') and self._line:
+                self._logger.info(self._line)
+                self._line = ""
+
+    def flush(self):
+        pass
+
+
 @pytest.fixture
 def sut():
     """
@@ -29,9 +63,9 @@ class _TestSUT:
         """
         Test communicate method.
         """
-        sut.communicate()
+        sut.communicate(iobuffer=Printer())
         with pytest.raises(SUTError):
-            sut.communicate()
+            sut.communicate(iobuffer=Printer())
         sut.stop()
 
     @pytest.mark.parametrize("force", [True, False])
@@ -44,14 +78,14 @@ class _TestSUT:
             time.sleep(sleep_t)
 
             if force:
-                sut.force_stop(timeout=4)
+                sut.force_stop(timeout=4, iobuffer=Printer())
             else:
-                sut.stop(timeout=4)
+                sut.stop(timeout=4, iobuffer=Printer())
 
         thread = threading.Thread(target=_threaded, daemon=True)
         thread.start()
 
-        sut.communicate()
+        sut.communicate(iobuffer=Printer())
 
         thread.join()
 
@@ -60,34 +94,35 @@ class _TestSUT:
         Test command run.
         """
         try:
-            sut.communicate()
+            sut.communicate(iobuffer=Printer())
 
             for _ in range(0, 100):
                 data = sut.run_command(
                     "cat /etc/os-release",
-                    timeout=1)
+                    timeout=1,
+                    iobuffer=Printer())
                 assert data["command"] == "cat /etc/os-release"
                 assert data["timeout"] == 1
                 assert data["returncode"] == 0
                 assert "ID=" in data["stdout"]
                 assert 0 < data["exec_time"] < time.time()
         finally:
-            sut.stop()
+            sut.stop(iobuffer=Printer())
 
     @pytest.mark.parametrize("force", [True, False])
     def test_stop_run_command(self, sut, force):
         """
         Test stop when command is running.
         """
-        sut.communicate()
+        sut.communicate(iobuffer=Printer())
 
         def _threaded():
             time.sleep(1)
 
             if force:
-                sut.force_stop(timeout=4)
+                sut.force_stop(timeout=4, iobuffer=Printer())
             else:
-                sut.stop(timeout=4)
+                sut.stop(timeout=4, iobuffer=Printer())
 
         thread = threading.Thread(target=_threaded, daemon=True)
         thread.start()
@@ -101,7 +136,7 @@ class _TestSUT:
         """
         Test run_command on timeout.
         """
-        sut.communicate()
+        sut.communicate(iobuffer=Printer())
 
         with pytest.raises(SUTTimeoutError):
             sut.run_command("sleep 2", timeout=0.5)
@@ -125,7 +160,7 @@ class _TestSUT:
         """
         Test fetch_file method.
         """
-        sut.communicate()
+        sut.communicate(iobuffer=Printer())
 
         try:
             for i in range(0, 5):
@@ -141,7 +176,7 @@ class _TestSUT:
                 assert os.path.isfile(local)
                 assert open(target, 'r').read() == "runltp-ng tests"
         finally:
-            sut.stop()
+            sut.stop(iobuffer=Printer())
 
     def test_stop_fetch_file(self, tmpdir, sut):
         """
@@ -160,7 +195,7 @@ class _TestSUT:
             ftarget.write(b'\0')
 
         def _threaded():
-            sut.communicate()
+            sut.communicate(iobuffer=Printer())
             sut.fetch_file(target, local)
 
         thread = threading.Thread(target=_threaded)
@@ -177,7 +212,7 @@ class _TestSUT:
             time.sleep(0.05)
             assert time.time() - start_t < 60
 
-        sut.stop()
+        sut.stop(iobuffer=Printer())
         thread.join()
 
         target_size = os.stat(target).st_size
@@ -201,10 +236,10 @@ class _TestSUT:
             ftarget.seek(1*1024*1024*1024-1)
             ftarget.write(b'\0')
 
-        sut.communicate()
+        sut.communicate(iobuffer=Printer())
 
         try:
             with pytest.raises(SUTTimeoutError):
                 sut.fetch_file(target, local, timeout=0)
         finally:
-            sut.stop()
+            sut.stop(iobuffer=Printer())

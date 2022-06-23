@@ -5,7 +5,6 @@
 
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
-from typing import Any
 from ltp import LTPException
 
 
@@ -39,44 +38,11 @@ class IOBuffer:
         raise NotImplementedError()
 
 
-class IOBufferList:
-    """
-    IO buffers list that can be used to process data arriving from stdout.
-    """
-
-    def __init__(self) -> None:
-        self._buffers = []
-
-    @property
-    def buffers(self) -> list:
-        """
-        Internal buffers list.
-        """
-        return self._buffers
-
-    def __iadd__(self, item: IOBuffer) -> Any:
-        """
-        Add a new ``IOBuffer`` implementation to buffers list.
-        """
-        self._buffers.append(item)
-        return self
-
-    def __isub__(self, item: IOBuffer) -> Any:
-        """
-        Remove an ``IOBuffer`` object from the buffers list.
-        """
-        self._buffers.remove(item)
-        return self
-
-
 class SUT:
     """
     SUT abstraction class. It could be a remote host, a local host, a virtual
     machine instance, etc.
     """
-
-    def __init__(self) -> None:
-        self._stdout_buffers = IOBufferList()
 
     @property
     def is_running(self) -> bool:
@@ -86,59 +52,55 @@ class SUT:
         raise NotImplementedError()
 
     @property
-    def stdout(self) -> IOBufferList:
-        """
-        Return the list of ``IOBuffer`` objects pointing to stdout.
-        """
-        return self._stdout_buffers
-
-    @stdout.setter
-    def stdout(self, item: IOBufferList) -> IOBufferList:
-        """
-        Setter for stdout buffers.
-        """
-        if not item:
-            raise ValueError("item is empty")
-
-        self._stdout_buffers = item
-
-    @property
     def name(self) -> str:
         """
         Name of the SUT.
         """
         raise NotImplementedError()
 
-    def communicate(self, timeout: float = 3600) -> None:
+    def communicate(self,
+                    timeout: float = 3600,
+                    iobuffer: IOBuffer = None) -> None:
         """
         Start communicating with the SUT.
         :param timeout: timeout to complete communication in seconds
         :type timeout: float
+        :param iobuffer: buffer used to write SUT stdout
+        :type iobuffer: IOBuffer
         """
         raise NotImplementedError()
 
-    def stop(self, timeout: float = 30) -> None:
+    def stop(self, timeout: float = 30, iobuffer: IOBuffer = None) -> None:
         """
         Stop the current SUT session.
         :param timeout: timeout to complete in seconds
         :type timeout: float
+        :param iobuffer: buffer used to write SUT stdout
+        :type iobuffer: IOBuffer
         """
         raise NotImplementedError()
 
-    def force_stop(self, timeout: float = 30) -> None:
+    def force_stop(self, timeout: float = 30, iobuffer: IOBuffer = None) -> None:
         """
         Force stopping the current SUT session.
         :param timeout: timeout to complete in seconds
         :type timeout: float
+        :param iobuffer: buffer used to write SUT stdout
+        :type iobuffer: IOBuffer
         """
         raise NotImplementedError()
 
-    def run_command(self, command: str, timeout: float = 3600) -> dict:
+    def run_command(self,
+                    command: str,
+                    timeout: float = 3600,
+                    iobuffer: IOBuffer = None) -> dict:
         """
         Run command on target.
         :param command: command to execute
         :param timeout: timeout before stopping execution. Default is 3600
         :type timeout: float
+        :param iobuffer: buffer used to write SUT stdout
+        :type iobuffer: IOBuffer
         :returns: dictionary containing command execution information
 
             {
