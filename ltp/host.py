@@ -143,7 +143,7 @@ class HostSUT(SUT):
                     select.POLLERR)
 
                 while True:
-                    events = poller.poll()
+                    events = poller.poll(0.5)
                     for fdesc, _ in events:
                         if fdesc != self._proc.stdout.fileno():
                             break

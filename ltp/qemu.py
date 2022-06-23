@@ -221,7 +221,7 @@ class QemuSUT(SUT):
         stdout = ""
 
         while not stdout.endswith(message):
-            events = self._poller.poll(1)
+            events = self._poller.poll(0.5)
             for fdesc, _ in events:
                 if fdesc != self._proc.stdout.fileno():
                     continue
@@ -271,7 +271,7 @@ class QemuSUT(SUT):
         try:
             # stop command first
             if self._cmd_lock.locked():
-                self._logger.info("Stop running command")
+                self._logger.info("Stop running command")t_secs
 
                 # send interrupt character (equivalent of CTRL+C)
                 self._write_stdin('\x03')

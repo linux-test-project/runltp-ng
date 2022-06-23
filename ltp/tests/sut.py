@@ -97,6 +97,15 @@ class _TestSUT:
         while sut.is_running:
             assert time.time() - t_start < 30
 
+    def test_timeout_run_command(self, sut):
+        """
+        Test run_command on timeout.
+        """
+        sut.communicate()
+
+        with pytest.raises(SUTTimeoutError):
+            sut.run_command("sleep 2", timeout=0.5)
+
     def test_fetch_file_bad_args(self, tmpdir, sut):
         """
         Test fetch_file method with bad arguments.
