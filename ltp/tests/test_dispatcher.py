@@ -178,6 +178,85 @@ class TestSerialDispatcher:
             sut.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_exec_suites_all(self, tmpdir):
+        """
+        Test exec_suites() method executing all different kind of tests.
+        """
+        testcases = str(tmpdir / "ltp" / "testcases" / "bin")
+        env = {}
+        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
+            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
+
+        sut = HostSUT(cwd=testcases, env=env)
+        sut.communicate()
+
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(tmpdir / "ltp"),
+            sut=sut,
+            events=SyncEventHandler())
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        try:
+            results = dispatcher.exec_suites(suites=[
+                "dirsuite0",
+                "dirsuite1",
+                "dirsuite2",
+                "dirsuite3",
+                "dirsuite4"])
+
+            assert len(results) == 5
+
+            assert results[0].suite.name == "dirsuite0"
+            assert results[0].tests_results[0].passed == 1
+            assert results[0].tests_results[0].failed == 0
+            assert results[0].tests_results[0].skipped == 0
+            assert results[0].tests_results[0].warnings == 0
+            assert results[0].tests_results[0].broken == 0
+            assert results[0].tests_results[0].return_code == 0
+            assert results[0].tests_results[0].exec_time > 0
+
+            assert results[1].suite.name == "dirsuite1"
+            assert results[1].tests_results[0].passed == 0
+            assert results[1].tests_results[0].failed == 1
+            assert results[1].tests_results[0].skipped == 0
+            assert results[1].tests_results[0].warnings == 0
+            assert results[1].tests_results[0].broken == 0
+            assert results[1].tests_results[0].return_code == 0
+            assert results[1].tests_results[0].exec_time > 0
+
+            assert results[2].suite.name == "dirsuite2"
+            assert results[2].tests_results[0].passed == 0
+            assert results[2].tests_results[0].failed == 0
+            assert results[2].tests_results[0].skipped == 1
+            assert results[2].tests_results[0].warnings == 0
+            assert results[2].tests_results[0].broken == 0
+            assert results[2].tests_results[0].return_code == 0
+            assert results[2].tests_results[0].exec_time > 0
+
+            assert results[3].suite.name == "dirsuite3"
+            assert results[3].tests_results[0].passed == 0
+            assert results[3].tests_results[0].failed == 0
+            assert results[3].tests_results[0].skipped == 0
+            assert results[3].tests_results[0].warnings == 0
+            assert results[3].tests_results[0].broken == 1
+            assert results[3].tests_results[0].return_code == 0
+            assert results[3].tests_results[0].exec_time > 0
+
+            assert results[4].suite.name == "dirsuite4"
+            assert results[4].tests_results[0].passed == 0
+            assert results[4].tests_results[0].failed == 0
+            assert results[4].tests_results[0].skipped == 0
+            assert results[4].tests_results[0].warnings == 1
+            assert results[4].tests_results[0].broken == 0
+            assert results[4].tests_results[0].return_code == 0
+            assert results[4].tests_results[0].exec_time > 0
+        finally:
+            sut.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
     def test_exec_suites_suite_timeout(self, tmpdir):
         """
         Test exec_suites() method when suite timeout occurs.
