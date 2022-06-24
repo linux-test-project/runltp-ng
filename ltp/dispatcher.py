@@ -503,8 +503,7 @@ class SerialDispatcher(Dispatcher):
             # read available testing suites
             avail_suites = self._read_available_suites()
 
-            if len(avail_suites) != len(suites) and \
-                    set(avail_suites).issubset(set(suites)):
+            if not set(suites).issubset(set(avail_suites)):
                 raise DispatcherError(
                     "Some suites are not available. Available suites are: "
                     f"{' '.join(avail_suites)}")
