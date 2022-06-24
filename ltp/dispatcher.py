@@ -210,7 +210,7 @@ class SerialDispatcher(Dispatcher):
             raise ValueError("Temporary directory doesn't exist")
 
         if not self._sut:
-            raise ValueError("SUT factory is empty")
+            raise ValueError("SUT object is empty")
 
         if not self._events:
             raise ValueError("No events are given")
@@ -232,6 +232,8 @@ class SerialDispatcher(Dispatcher):
         if not self.is_running:
             return
 
+        self._logger.info("Stopping dispatcher")
+
         self._stop = True
 
         try:
@@ -239,10 +241,13 @@ class SerialDispatcher(Dispatcher):
             t_secs = max(timeout, 0)
 
             while self.is_running:
+                time.sleep(0.1)
                 if time.time() - t_start >= t_secs:
                     raise DispatcherError("Timeout when stopping dispatcher")
         finally:
             self._stop = False
+
+        self._logger.info("Dispatcher stopped")
 
     def _read_available_suites(self) -> list:
         """
@@ -520,6 +525,7 @@ class SerialDispatcher(Dispatcher):
             results = []
             for suite in suites_obj:
                 result = self._run_suite(suite)
-                results.append(result)
+                if result:
+                    results.append(result)
 
             return results

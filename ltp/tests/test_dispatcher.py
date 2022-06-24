@@ -4,6 +4,7 @@ Unittests for Dispatcher implementations.
 import os
 import math
 import stat
+import threading
 import pytest
 from unittest.mock import MagicMock
 from unittest.mock import PropertyMock
@@ -17,6 +18,25 @@ class TestSerialDispatcher:
     """
     Test SerialDispatcher implementation.
     """
+
+    @pytest.fixture
+    def sut(self, tmpdir):
+        """
+        Initialized SUT instance
+        """
+        testcases = str(tmpdir / "ltp" / "testcases" / "bin")
+
+        env = {}
+        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
+            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
+
+        sut = HostSUT(cwd=testcases, env=env)
+        # hack: force the SUT to be recognized as a different host
+        # so we can reboot it
+        HostSUT.name = PropertyMock(return_value="testing_host")
+        sut.communicate()
+
+        return sut
 
     @pytest.fixture
     def prepare_tmpdir(self, tmpdir):
@@ -70,12 +90,10 @@ class TestSerialDispatcher:
         scenario_def = scenario_dir.join("network")
         scenario_def.write("dirsuite2\ndirsuite3\ndirsuite4\ndirsuite5")
 
-    def test_bad_constructor(self, tmpdir):
+    def test_bad_constructor(self, tmpdir, sut):
         """
         Test constructor with bad arguments.
         """
-        sut = HostSUT()
-
         with pytest.raises(ValueError):
             SerialDispatcher(
                 tmpdir=str(tmpdir),
@@ -105,13 +123,10 @@ class TestSerialDispatcher:
                 events=None)
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_exec_suites_bad_args(self, tmpdir):
+    def test_exec_suites_bad_args(self, tmpdir, sut):
         """
         Test exec_suites() method with bad arguments.
         """
-        sut = HostSUT()
-        sut.communicate()
-
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
@@ -131,18 +146,10 @@ class TestSerialDispatcher:
             sut.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_exec_suites(self, tmpdir):
+    def test_exec_suites(self, tmpdir, sut):
         """
         Test exec_suites() method.
         """
-        testcases = str(tmpdir / "ltp" / "testcases" / "bin")
-        env = {}
-        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
-            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
-
-        sut = HostSUT(cwd=testcases, env=env)
-        sut.communicate()
-
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
@@ -178,18 +185,38 @@ class TestSerialDispatcher:
             sut.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_exec_suites_all(self, tmpdir):
+    def test_stop(self, tmpdir, sut):
+        """
+        Test stop method during exec_suites.
+        """
+        events = SyncEventHandler()
+        dispatcher = SerialDispatcher(
+            tmpdir=str(tmpdir),
+            ltpdir=str(tmpdir / "ltp"),
+            sut=sut,
+            events=events)
+
+        def _threaded():
+            dispatcher.stop(timeout=3)
+
+        thread = threading.Thread(target=_threaded, daemon=True)
+
+        def stop_exec_suites(test):
+            thread.start()
+
+        events.register("test_started", stop_exec_suites)
+
+        dispatcher._save_dmesg = MagicMock()
+        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+
+        results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
+        assert len(results) == 1 # we stop it just before the second suite
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_exec_suites_all(self, tmpdir, sut):
         """
         Test exec_suites() method executing all different kind of tests.
         """
-        testcases = str(tmpdir / "ltp" / "testcases" / "bin")
-        env = {}
-        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
-            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
-
-        sut = HostSUT(cwd=testcases, env=env)
-        sut.communicate()
-
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
@@ -257,7 +284,7 @@ class TestSerialDispatcher:
             sut.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_exec_suites_suite_timeout(self, tmpdir):
+    def test_exec_suites_suite_timeout(self, tmpdir, sut):
         """
         Test exec_suites() method when suite timeout occurs.
         """
@@ -266,9 +293,6 @@ class TestSerialDispatcher:
 
         sleepsuite = runtest.join("sleepsuite")
         sleepsuite.write("sleep sleep 2")
-
-        sut = HostSUT()
-        sut.communicate()
 
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
@@ -288,7 +312,7 @@ class TestSerialDispatcher:
             sut.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_exec_suites_test_timeout(self, tmpdir):
+    def test_exec_suites_test_timeout(self, tmpdir, sut):
         """
         Test exec_suites() method when test timeout occurs.
         """
@@ -297,9 +321,6 @@ class TestSerialDispatcher:
 
         sleepsuite = runtest.join("sleepsuite")
         sleepsuite.write("sleep sleep 2")
-
-        sut = HostSUT()
-        sut.communicate()
 
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
@@ -320,15 +341,11 @@ class TestSerialDispatcher:
         assert ret[0].tests_results[0].return_code == -1
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_kernel_tained(self, tmpdir):
+    def test_kernel_tained(self, tmpdir, sut):
         """
         Test tained kernel recognition.
         """
         ltpdir = tmpdir / "ltp"
-
-        sut = HostSUT()
-        HostSUT.name = PropertyMock(return_value="testing_host")
-        sut.communicate()
 
         events = SyncEventHandler()
         dispatcher = SerialDispatcher(
@@ -383,7 +400,7 @@ class TestSerialDispatcher:
             sut.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_kernel_panic(self, tmpdir):
+    def test_kernel_panic(self, tmpdir, sut):
         """
         Test kernel panic recognition.
         """
@@ -393,12 +410,6 @@ class TestSerialDispatcher:
         # just write "Kernel panic" on stdout and trigger the dispatcher
         crashsuite = runtest.join("crashme")
         crashsuite.write(f"kernel_panic echo Kernel panic")
-
-        sut = HostSUT()
-        # hack: force the SUT to be recognized as a different host
-        # so we can reboot it
-        HostSUT.name = PropertyMock(return_value="testing_host")
-        sut.communicate()
 
         events = SyncEventHandler()
         dispatcher = SerialDispatcher(
