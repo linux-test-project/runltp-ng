@@ -258,6 +258,10 @@ class QemuSUT(SUT):
 
         stdout = self._wait_for(self._ps1, timeout, iobuffer)
 
+        # we don't want to keep prompt string at the end of the stdout
+        if stdout and stdout.endswith(self._ps1):
+            stdout = stdout[:-len(self._ps1)]
+
         return stdout
 
     # pylint: disable=too-many-branches
