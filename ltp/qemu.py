@@ -290,6 +290,7 @@ class QemuSUT(SUT):
 
                 start_t = time.time()
                 while self._cmd_lock.locked():
+                    time.sleep(0.05)
                     if time.time() - start_t >= t_secs:
                         raise SUTTimeoutError("Timed out during stop")
 
@@ -299,6 +300,7 @@ class QemuSUT(SUT):
 
                 start_t = time.time()
                 while self._fetch_lock.locked():
+                    time.sleep(0.05)
                     if time.time() - start_t >= t_secs:
                         raise SUTTimeoutError("Timed out during stop")
 
@@ -334,12 +336,14 @@ class QemuSUT(SUT):
             if self._comm_lock.locked():
                 start_t = time.time()
                 while self._comm_lock.locked():
+                    time.sleep(0.05)
                     if time.time() - start_t >= t_secs:
                         raise SUTTimeoutError("Timed out during stop")
 
             # wait for process to end
             start_t = time.time()
             while self._proc.poll() is None:
+                time.sleep(0.05)
                 if time.time() - start_t >= timeout:
                     raise SUTTimeoutError("Timed out during stop")
         finally:

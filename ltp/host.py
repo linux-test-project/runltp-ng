@@ -69,12 +69,14 @@ class HostSUT(SUT):
 
         t_start = time.time()
         while self._fetch_lock.locked():
+            time.sleep(0.05)
             if time.time() - t_start >= t_secs:
                 raise SUTTimeoutError(
                     "Timeout waiting for command to stop")
 
         t_start = time.time()
         while self._cmd_lock.locked():
+            time.sleep(0.05)
             if time.time() - t_start >= t_secs:
                 raise SUTTimeoutError(
                     "Timeout waiting for command to stop")
