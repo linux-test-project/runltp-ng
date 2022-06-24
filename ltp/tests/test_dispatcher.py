@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 from unittest.mock import PropertyMock
 from ltp.host import HostSUT
 from ltp.events import SyncEventHandler
+from ltp.dispatcher import DispatcherError
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
 
