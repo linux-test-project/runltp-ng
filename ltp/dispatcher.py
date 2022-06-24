@@ -240,7 +240,7 @@ class SerialDispatcher(Dispatcher):
 
             while self.is_running:
                 if time.time() - t_start >= t_secs:
-                    raise DispatcherError("Timeout during stop")
+                    raise DispatcherError("Timeout when stopping dispatcher")
         finally:
             self._stop = False
 
