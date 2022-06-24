@@ -438,7 +438,6 @@ class SerialDispatcher(Dispatcher):
 
         return results
 
-    # pylint: disable=too-many-locals
     def _run_suite(
             self,
             suite: Suite,
@@ -460,7 +459,7 @@ class SerialDispatcher(Dispatcher):
 
         for test in suite.tests:
             if self._stop:
-                return None
+                break
 
             results = self._run_test(test)
             if not results:
@@ -472,6 +471,10 @@ class SerialDispatcher(Dispatcher):
                 raise SuiteTimeoutError(
                     f"{suite.name} suite timed out "
                     f"(timeout={self._suite_timeout})")
+
+        if not tests_results:
+            # no tests execution means no suite
+            return None
 
         suite_results = SuiteResults(
             suite=suite,

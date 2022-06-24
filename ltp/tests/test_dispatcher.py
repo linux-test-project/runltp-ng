@@ -210,7 +210,13 @@ class TestSerialDispatcher:
         dispatcher._check_tained = MagicMock(return_value=(0, ""))
 
         results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
-        assert len(results) == 1 # we stop it just before the second suite
+
+        thread.join(timeout=1)
+
+        assert len(results) == 1
+
+        assert results[0].passed == 1
+        assert len(results[0].tests_results) == 1
 
     @pytest.mark.usefixtures("prepare_tmpdir")
     def test_exec_suites_all(self, tmpdir, sut):
