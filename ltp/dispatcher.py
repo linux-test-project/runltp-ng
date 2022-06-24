@@ -439,7 +439,13 @@ class SerialDispatcher(Dispatcher):
         return results
 
     # pylint: disable=too-many-locals
-    def _run_suite(self, suite: Suite) -> SuiteResults:
+    def _run_suite(
+            self,
+            suite: Suite,
+            distro: str,
+            distro_ver: str,
+            kernel: str,
+            arch: str) -> SuiteResults:
         """
         Execute a specific testing suite and return the results.
         """
@@ -467,33 +473,13 @@ class SerialDispatcher(Dispatcher):
                     f"{suite.name} suite timed out "
                     f"(timeout={self._suite_timeout})")
 
-        self._logger.info("Reading SUT information")
-
-        # create suite results
-        def _run_cmd(cmd: str) -> str:
-            """
-            Run command, check for returncode and return command's stdout.
-            """
-            ret = self._sut.run_command(cmd, timeout=10)
-            if ret["returncode"] != 0:
-                raise DispatcherError(f"Can't read information from SUT: {cmd}")
-
-            stdout = ret["stdout"].rstrip()
-
-            return stdout
-
-        distro_str = _run_cmd(". /etc/os-release; echo \"$ID\"")
-        distro_ver_str = _run_cmd(". /etc/os-release; echo \"$VERSION_ID\"")
-        kernel_str = _run_cmd("uname -s -r -v")
-        arch_str = _run_cmd("uname -m")
-
         suite_results = SuiteResults(
             suite=suite,
             tests=tests_results,
-            distro=distro_str,
-            distro_ver=distro_ver_str,
-            kernel=kernel_str,
-            arch=arch_str)
+            distro=distro,
+            distro_ver=distro_ver,
+            kernel=kernel,
+            arch=arch)
 
         # read kernel messages for the current SUT instance
         self._save_dmesg(suite.name)
@@ -522,9 +508,35 @@ class SerialDispatcher(Dispatcher):
 
             suites_obj = self._download_suites(suites)
 
+            self._logger.info("Reading SUT information")
+
+            # create suite results
+            def _run_cmd(cmd: str) -> str:
+                """
+                Run command, check for returncode and return command's stdout.
+                """
+                ret = self._sut.run_command(cmd, timeout=10)
+                if ret["returncode"] != 0:
+                    raise DispatcherError(f"Can't read information from SUT: {cmd}")
+
+                stdout = ret["stdout"].rstrip()
+
+                return stdout
+
+            distro = _run_cmd(". /etc/os-release; echo \"$ID\"")
+            distro_ver = _run_cmd(". /etc/os-release; echo \"$VERSION_ID\"")
+            kernel = _run_cmd("uname -s -r -v")
+            arch = _run_cmd("uname -m")
+
             results = []
             for suite in suites_obj:
-                result = self._run_suite(suite)
+                result = self._run_suite(
+                    suite,
+                    distro,
+                    distro_ver,
+                    kernel,
+                    arch)
+
                 if result:
                     results.append(result)
 
