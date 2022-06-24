@@ -134,6 +134,7 @@ class HostSUT(SUT):
                 t_secs,
                 command)
 
+            # pylint: disable=consider-using-with
             self._proc = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,

@@ -383,6 +383,7 @@ class QemuSUT(SUT):
             self._logger.info("Starting virtual machine")
             self._logger.debug(cmd)
 
+            # pylint: disable=consider-using-with
             self._proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
