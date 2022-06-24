@@ -59,13 +59,16 @@ class QemuSUT(SUT):
         self._qemu_cmd = f"qemu-system-{system}"
 
         if not self._tmpdir or not os.path.isdir(self._tmpdir):
-            raise ValueError("temporary directory doesn't exist")
+            raise ValueError(
+                f"Temporary directory doesn't exist: {self._tmpdir}")
 
         if not self._image or not os.path.isfile(self._image):
-            raise ValueError("Image location doesn't exist")
+            raise ValueError(
+                f"Image location doesn't exist: {self._image}")
 
         if self._ro_image and not os.path.isfile(self._ro_image):
-            raise ValueError("Read-only image location doesn't exist")
+            raise ValueError(
+                f"Read-only image location doesn't exist: {self._ro_image}")
 
         if not self._ram:
             raise ValueError("RAM is not defined")
@@ -74,7 +77,8 @@ class QemuSUT(SUT):
             raise ValueError("CPU is not defined")
 
         if self._virtfs and not os.path.isdir(self._virtfs):
-            raise ValueError("Virtual FS directory doesn't exist")
+            raise ValueError(
+                f"Virtual FS directory doesn't exist: {self._virtfs}")
 
         if self._serial_type not in ["isa", "virtio"]:
             raise ValueError("Serial protocol must be isa or virtio")
