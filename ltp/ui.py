@@ -27,6 +27,7 @@ class ConsoleUserInterface:
     YELLOW = "\033[1;33m"
     RED = "\033[1;31m"
     CYAN = "\033[1;36m"
+    RESET = "\033[2J"
 
 
     @staticmethod
@@ -220,6 +221,7 @@ class VerboseUserInterface(ConsoleUserInterface):
 
     def __init__(self, events: EventHandler) -> None:
         self._timed_out = False
+        self._buffer = ""
 
         events.register("session_started", self.session_started)
         events.register("session_stopped", self.session_stopped)
@@ -276,8 +278,14 @@ class VerboseUserInterface(ConsoleUserInterface):
     def sut_restart(self, sut: str) -> None:
         self._print(f"Restarting SUT: {sut}")
 
-    def sut_stdout_line(self, _: str, line: str) -> None:
-        self._print(line)
+    def sut_stdout_line(self, _: str, data: bytes) -> None:
+        self._buffer += data.decode(encoding="utf-8", errors="ignore")
+
+        if data == b'\n':
+            # remove reset character, otherwise terminal logs might be cleaned
+            self._buffer = self._buffer.replace(self.RESET, "")
+            self._print(self._buffer, end="")
+            self._buffer = ""
 
     def kernel_tained(self, message: str) -> None:
         self._print(f"Tained kernel: {message}", color=self.YELLOW)
@@ -339,8 +347,8 @@ class VerboseUserInterface(ConsoleUserInterface):
     def run_cmd_start(self, cmd: str) -> None:
         self._print(f"{cmd}\n", end="", color=self.CYAN)
 
-    def run_cmd_stdout(self, sut_name: str, line: bytes) -> None:
-        self._print(line.decode(encoding="utf-8", errors="ignore"), end="")
+    def run_cmd_stdout(self, data: bytes) -> None:
+        self._print(data.decode(encoding="utf-8", errors="ignore"))
 
     def run_cmd_stop(self, _: str, returncode: int) -> None:
         msg = "Done"

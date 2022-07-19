@@ -32,12 +32,16 @@ class Printer(IOBuffer):
     Redirect data from stdout to events.
     """
 
-    def __init__(self, sut: SUT, events: EventHandler) -> None:
+    def __init__(self, sut: SUT, events: EventHandler, is_cmd: bool) -> None:
         self._events = events
         self._sut = sut
+        self._is_cmd = is_cmd
 
     def write(self, data: bytes) -> None:
-        self._events.fire("run_cmd_stdout", self._sut.name, data)
+        if self._is_cmd:
+            self._events.fire("run_cmd_stdout", data)
+        else:
+            self._events.fire("sut_stdout_line", self._sut.name, data)
 
     def flush(self) -> None:
         pass
@@ -145,7 +149,7 @@ class Session:
 
         sut.communicate(
             timeout=timeout,
-            iobuffer=Printer(sut, self._events))
+            iobuffer=Printer(sut, self._events, False))
 
         return sut
 
@@ -161,11 +165,11 @@ class Session:
         if self._sut.is_running:
             self._sut.stop(
                 timeout=timeout,
-                iobuffer=Printer(self._sut, self._events))
+                iobuffer=Printer(self._sut, self._events, False))
         else:
             self._sut.force_stop(
                 timeout=timeout,
-                iobuffer=Printer(self._sut, self._events))
+                iobuffer=Printer(self._sut, self._events, False))
 
         self._sut = None
 
@@ -253,7 +257,7 @@ class Session:
                     ret = self._sut.run_command(
                         command,
                         timeout=self._exec_timeout,
-                        iobuffer=Printer(self._sut, self._events))
+                        iobuffer=Printer(self._sut, self._events, True))
 
                     self._events.fire(
                         "run_cmd_stop",
