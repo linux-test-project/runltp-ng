@@ -122,6 +122,15 @@ class Session:
         if sut_name not in ["qemu", "host"]:
             raise ValueError(f"{sut_name} is not supported")
 
+        session_tmpdir = TempRotator(tmpdir).rotate()
+
+        self._logger.info(
+            "Running session using temporary folder: %s",
+            session_tmpdir)
+
+        self._setup_debug_log(session_tmpdir)
+        self._events.fire("session_started", session_tmpdir)
+
         testcases = os.path.join(ltpdir, "testcases", "bin")
 
         env = {}
@@ -136,7 +145,7 @@ class Session:
             config = {}
             config['env'] = env
             config['cwd'] = testcases
-            config['tmpdir'] = tmpdir
+            config['tmpdir'] = session_tmpdir
             config.update(sut_config)
 
             sut = QemuSUT(**config)
@@ -234,20 +243,11 @@ class Session:
             raise ValueError("sut configuration can't be empty")
 
         with self._lock_run:
-            session_tmpdir = TempRotator(tmpdir).rotate()
-
-            self._logger.info(
-                "Running session using temporary folder: %s",
-                session_tmpdir)
-
-            self._setup_debug_log(session_tmpdir)
-            self._events.fire("session_started", session_tmpdir)
-
             self._sut = None
             self._dispatcher = None
 
             try:
-                self._sut = self._start_sut(ltpdir, session_tmpdir, sut_config)
+                self._sut = self._start_sut(ltpdir, tmpdir, sut_config)
 
                 self._logger.info("Created SUT: %s", self._sut.name)
 
