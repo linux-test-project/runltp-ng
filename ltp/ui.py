@@ -339,8 +339,8 @@ class VerboseUserInterface(ConsoleUserInterface):
     def run_cmd_start(self, cmd: str) -> None:
         self._print(f"{cmd}\n", end="", color=self.CYAN)
 
-    def run_cmd_stdout(self, line) -> None:
-        self._print(line)
+    def run_cmd_stdout(self, sut_name: str, line: bytes) -> None:
+        self._print(line.decode(encoding="utf-8", errors="ignore"), end="")
 
     def run_cmd_stop(self, _: str, returncode: int) -> None:
         msg = "Done"
