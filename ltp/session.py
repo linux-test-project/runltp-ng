@@ -123,6 +123,8 @@ class Session:
         env = {}
         env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
+        env["LTPROOT"] = ltpdir
+        env["TMPDIR"] = tmpdir
 
         sut = None
         timeout = 0.0
