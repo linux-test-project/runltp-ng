@@ -69,8 +69,6 @@ class SimpleUserInterface(ConsoleUserInterface):
         events.register("test_completed", self.test_completed)
         events.register("run_cmd_start", self.run_cmd_start)
         events.register("run_cmd_stop", self.run_cmd_stop)
-        events.register("show_install_dependences", self.show_install_dependences)
-        events.register("show_tests_list", self.show_tests_list)
 
     def session_started(self, tmpdir: str) -> None:
         uname = platform.uname()
@@ -191,28 +189,6 @@ class SimpleUserInterface(ConsoleUserInterface):
 
         self._print(msg, color=col)
 
-    def show_install_dependences(
-            self,
-            refresh_cmd: str,
-            install_cmd: str,
-            pkgs: list) -> None:
-        message = ""
-        if refresh_cmd:
-            message += refresh_cmd
-
-        if install_cmd:
-            message += " && "
-            message += install_cmd
-            message += " "
-
-        message += " ".join(pkgs)
-
-        self._print(f"{message}")
-
-    def show_tests_list(self, suites: list) -> None:
-        for suite in suites:
-            self._print(f"{suite}")
-
 
 class VerboseUserInterface(ConsoleUserInterface):
     """
@@ -241,8 +217,6 @@ class VerboseUserInterface(ConsoleUserInterface):
         events.register("run_cmd_start", self.run_cmd_start)
         events.register("run_cmd_stdout", self.run_cmd_stdout)
         events.register("run_cmd_stop", self.run_cmd_stop)
-        events.register("show_install_dependences", self.show_install_dependences)
-        events.register("show_tests_list", self.show_tests_list)
 
     def session_started(self, tmpdir: str) -> None:
         uname = platform.uname()
@@ -359,25 +333,3 @@ class VerboseUserInterface(ConsoleUserInterface):
             col = self.RED
 
         self._print(msg, color=col)
-
-    def show_install_dependences(
-            self,
-            refresh_cmd: str,
-            install_cmd: str,
-            pkgs: list) -> None:
-        message = ""
-        if refresh_cmd:
-            message += refresh_cmd
-
-        if install_cmd:
-            message += " && "
-            message += install_cmd
-            message += " "
-
-        message += " ".join(pkgs)
-
-        self._print(f"{message}")
-
-    def show_tests_list(self, suites: list) -> None:
-        for suite in suites:
-            self._print(f"{suite}")
