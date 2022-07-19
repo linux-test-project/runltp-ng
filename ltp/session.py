@@ -298,3 +298,7 @@ class Session:
 
                 self._logger.error("Error: %s", str(err))
                 self._events.fire("session_error", str(err))
+            except KeyboardInterrupt:
+                self._logger.info("Keyboard interrupt")
+                self._stop_all(timeout=60)
+                self._events.fire("session_stopped")
