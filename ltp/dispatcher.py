@@ -18,6 +18,7 @@ from ltp.suite import Suite
 from ltp.results import TestResults
 from ltp.results import SuiteResults
 from ltp.metadata import Runtest
+from ltp.events import EventHandler
 
 
 class DispatcherError(LTPException):
@@ -148,16 +149,43 @@ class KernelPanicError(LTPException):
     """
 
 
-class KernelPanicChecker(IOBuffer):
+class StdoutChecker(IOBuffer):
     """
-    Checks for Kernel panic message and raise an exception.
+    Check for test's stdout and raise an exception if Kernel panic occured.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, test: Test, events: EventHandler) -> None:
         self.stdout = ""
+        self._test = test
+        self._events = events
+        self._line = ""
 
     def write(self, data: bytes) -> None:
-        self.stdout += data.decode(encoding="utf-8", errors="replace")
+        data_str = data.decode(encoding="utf-8", errors="replace")
+
+        if len(data_str) == 1:
+            self._line += data_str
+            if data_str == "\n":
+                self._events.fire(
+                    "test_stdout_line",
+                    self._test,
+                    self._line[:-1])
+                self._line = ""
+        else:
+            lines = data_str.split('\n')
+            for line in lines[:-1]:
+                self._line += line
+                self._events.fire("test_stdout_line", self._test, self._line)
+                self._line = ""
+
+            self._line = lines[-1]
+
+            if data_str.endswith('\n') and self._line:
+                self._events.fire("test_stdout_line", self._test, self._line)
+                self._line = ""
+
+        self.stdout += data_str
+
         if "Kernel panic" in self.stdout:
             raise KernelPanicError()
 
@@ -378,7 +406,7 @@ class SerialDispatcher(Dispatcher):
         timed_out = False
         reboot = False
 
-        checker = KernelPanicChecker()
+        checker = StdoutChecker(test, self._events)
         try:
             test_data = self._sut.run_command(
                 cmd,
