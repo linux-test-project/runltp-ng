@@ -37,20 +37,10 @@ Development
 ===========
 
 The application is validated using `pytest` and `pylint`.
+To run unittests:
 
-Unit testing
-------------
-
-To run unittests, `pytest` has to be installed:
-
-    pip install -e .
-    pip install pytest
     pytest
 
-Linting
--------
+To run linting checks:
 
-To run linting checks, `pylint` has to be installed:
-
-    pip install pylint
     pylint --rcfile=pylint.ini ./ltp
