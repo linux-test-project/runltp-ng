@@ -431,14 +431,15 @@ class SerialDispatcher(Dispatcher):
             self._events.fire("kernel_panic")
             self._logger.debug("Kernel panic recognized")
 
-        # check again for tained kernel and if tained status has changed
-        # just raise an exception and reboot the SUT
-        tained_code_after, tained_msg_after = self._check_tained()
-        if tained_code_before != tained_code_after:
-            reboot = True
-            for msg in tained_msg_after:
-                self._events.fire("kernel_tained", msg)
-                self._logger.debug("Kernel tained after test: %s", msg)
+        if not reboot:
+            # check again for tained kernel and if tained status has changed
+            # just raise an exception and reboot the SUT
+            tained_code_after, tained_msg_after = self._check_tained()
+            if tained_code_before != tained_code_after:
+                reboot = True
+                for msg in tained_msg_after:
+                    self._events.fire("kernel_tained", msg)
+                    self._logger.debug("Kernel tained after test: %s", msg)
 
         if timed_out:
             test_data = {

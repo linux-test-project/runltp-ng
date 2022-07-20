@@ -357,13 +357,110 @@ class QemuSUT(SUT):
         self,
         timeout: float = 30,
         iobuffer: IOBuffer = None) -> None:
-        self._inner_stop(force=False, timeout=timeout, iobuffer=iobuffer)
+        if not self.is_running:
+            return
+
+        self._logger.info("Shutting down virtual machine")
+        self._stop = True
+
+        t_secs = max(timeout, 0)
+
+        # some pylint versions don't recognize threading::Lock::locked
+        # pylint: disable=no-member
+
+        try:
+            # stop command first
+            if self._cmd_lock.locked():
+                self._logger.info("Stop running command")
+
+                # send interrupt character (equivalent of CTRL+C)
+                self._write_stdin('\x03')
+
+                start_t = time.time()
+                while self._cmd_lock.locked():
+                    time.sleep(0.05)
+                    if time.time() - start_t >= t_secs:
+                        raise SUTTimeoutError("Timed out during stop")
+
+            # wait until fetching file is ended
+            if self._fetch_lock.locked():
+                self._logger.info("Stop fetching file")
+
+                start_t = time.time()
+                while self._fetch_lock.locked():
+                    time.sleep(0.05)
+                    if time.time() - start_t >= t_secs:
+                        raise SUTTimeoutError("Timed out during stop")
+
+            # logged in -> poweroff
+            if self._logged_in:
+                self._logger.info("Poweroff virtual machine")
+
+                self._exec("\n", 5, iobuffer)
+                self._write_stdin("poweroff\n")
+
+                start_t = time.time()
+                while self._proc.poll() is None:
+                    events = self._poller.poll(1)
+                    for fdesc, _ in events:
+                        if fdesc != self._proc.stdout.fileno():
+                            continue
+
+                        self._read_stdout(1, iobuffer)
+
+                    if time.time() - start_t >= t_secs:
+                        break
+
+            # still running -> stop process
+            if self._proc.poll() is None:
+                self._logger.info("Killing virtual machine process")
+
+                self._proc.send_signal(signal.SIGHUP)
+
+            # wait communicate() to end
+            if self._comm_lock.locked():
+                start_t = time.time()
+                while self._comm_lock.locked():
+                    time.sleep(0.05)
+                    if time.time() - start_t >= t_secs:
+                        raise SUTTimeoutError("Timed out during stop")
+
+            # wait for process to end
+            start_t = time.time()
+            while self._proc.poll() is None:
+                time.sleep(0.05)
+                if time.time() - start_t >= t_secs:
+                    raise SUTTimeoutError("Timed out during stop")
+        finally:
+            self._stop = False
 
     def force_stop(
         self,
         timeout: float = 30,
         iobuffer: IOBuffer = None) -> None:
-        self._inner_stop(force=True, timeout=timeout, iobuffer=iobuffer)
+        if not self.is_running:
+            return
+
+        self._logger.info("Shutting down virtual machine")
+        self._stop = True
+
+        t_secs = max(timeout, 0)
+
+        try:
+            # still running -> stop process
+            if self._proc.poll() is None:
+                self._logger.info("Killing virtual machine process")
+
+                self._proc.send_signal(signal.SIGKILL)
+
+                # wait for process to end
+                start_t = time.time()
+                while self._proc.poll() is None:
+                    time.sleep(0.05)
+                    if time.time() - start_t >= t_secs:
+                        raise SUTTimeoutError("Timed out during stop")
+        finally:
+            self._stop = False
 
     def communicate(
         self,
@@ -469,16 +566,18 @@ class QemuSUT(SUT):
             # read return code
             reply = self._exec(f"echo $?-{code}\n", 5, iobuffer)
 
-            match = re.search(f"^(?P<retcode>\\d+)-{code}", reply)
-            if not match:
-                raise SUTError(
-                    f"Can't read return code from reply {repr(reply)}")
-
             retcode = -1
-            try:
-                retcode = int(match.group("retcode"))
-            except TypeError:
-                pass
+
+            if reply:
+                match = re.search(f"^(?P<retcode>\\d+)-{code}", reply)
+                if not match:
+                    raise SUTError(
+                        f"Can't read return code from reply {repr(reply)}")
+
+                try:
+                    retcode = int(match.group("retcode"))
+                except TypeError:
+                    pass
 
             ret = {
                 "command": command,
