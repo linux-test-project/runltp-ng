@@ -113,7 +113,9 @@ class LTX:
 
             poller = select.epoll()
             poller.register(self._stdout_fd, select.EPOLLIN)
-            unpacker = msgpack.Unpacker()
+
+            # force utf-8 encoding by using raw=False
+            unpacker = msgpack.Unpacker(raw=False)
             reply = None
 
             start_t = time.time()
