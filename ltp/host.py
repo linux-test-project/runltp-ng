@@ -264,7 +264,7 @@ class HostSUT(SUT):
             raise ValueError("target path is empty")
 
         if not os.path.isfile(target_path):
-            raise ValueError("target file doesn't exist")
+            raise SUTError(f"'{target_path}' file doesn't exist")
 
         with self._fetch_lock:
             self._logger.info("Downloading '%s'", target_path)

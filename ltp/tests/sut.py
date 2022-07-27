@@ -179,6 +179,9 @@ class _TestSUT:
         with pytest.raises(ValueError):
             sut.fetch_file(None)
 
+        with pytest.raises(SUTError):
+            sut.fetch_file('this_file_doesnt_exist')
+
     def test_fetch_file(self, sut):
         """
         Test fetch_file method.

@@ -666,6 +666,10 @@ class QemuSUT(SUT):
         with self._fetch_lock:
             self._logger.info("Downloading %s", target_path)
 
+            ret = self.run_command(f'test -f {target_path}', timeout=1)
+            if ret["returncode"] != 0:
+                raise SUTError(f"'{target_path}' doesn't exist")
+
             transport_dev, transport_path = self._get_transport()
 
             ret = self.run_command(
