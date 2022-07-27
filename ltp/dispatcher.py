@@ -199,27 +199,6 @@ class SerialDispatcher(Dispatcher):
     the other.
     """
 
-    TAINED_MSG = [
-        "proprietary module was loaded",
-        "module was force loaded",
-        "kernel running on an out of specification system",
-        "module was force unloaded",
-        "processor reported a Machine Check Exception (MCE)",
-        "bad page referenced or some unexpected page flags",
-        "taint requested by userspace application",
-        "kernel died recently, i.e. there was an OOPS or BUG",
-        "ACPI table overridden by user",
-        "kernel issued warning",
-        "staging driver was loaded",
-        "workaround for bug in platform firmware applied",
-        "externally-built (“out-of-tree”) module was loaded",
-        "unsigned module was loaded",
-        "soft lockup occurred",
-        "kernel has been live patched",
-        "auxiliary taint, defined for and used by distros",
-        "kernel was built with the struct randomization plugin"
-    ]
-
     def __init__(self, **kwargs: dict) -> None:
         self._logger = logging.getLogger("ltp.dispatcher")
         self._ltpdir = kwargs.get("ltpdir", None)
@@ -328,34 +307,6 @@ class SerialDispatcher(Dispatcher):
 
         return suites_obj
 
-    def _check_tained(self) -> set:
-        """
-        Return tained messages if kernel is tained.
-        """
-        self._logger.info("Checking for tained kernel")
-
-        ret = self._sut.run_command(
-            "cat /proc/sys/kernel/tainted",
-            timeout=10)
-
-        if ret["returncode"] != 0:
-            raise DispatcherError("Error reading /proc/sys/kernel/tainted")
-
-        tained_num = len(self.TAINED_MSG)
-
-        code = int(ret["stdout"].rstrip())
-        bits = format(code, f"0{tained_num}b")[::-1]
-
-        messages = []
-        for i in range(0, tained_num):
-            if bits[i] == "1":
-                msg = self.TAINED_MSG[i]
-                messages.append(msg)
-
-        self._logger.info("Tained kernel: %s", messages)
-
-        return code, messages
-
     def _reboot_sut(self, force: bool = False) -> None:
         """
         This method reboot SUT if needed, for example, after a Kernel panic.
@@ -399,7 +350,7 @@ class SerialDispatcher(Dispatcher):
         test_data = None
 
         # check for tained kernel status
-        tained_code_before, tained_msg_before = self._check_tained()
+        tained_code_before, tained_msg_before = self._sut.get_tained_info()
         if tained_msg_before:
             for msg in tained_msg_before:
                 self._events.fire("kernel_tained", msg)
@@ -417,7 +368,7 @@ class SerialDispatcher(Dispatcher):
         except SUTTimeoutError:
             timed_out = True
             try:
-                self._sut.run_command("test .", timeout=1)
+                self._sut.ping()
 
                 # SUT replies -> test timed out
                 self._events.fire(
@@ -436,7 +387,7 @@ class SerialDispatcher(Dispatcher):
         if not reboot:
             # check again for tained kernel and if tained status has changed
             # just raise an exception and reboot the SUT
-            tained_code_after, tained_msg_after = self._check_tained()
+            tained_code_after, tained_msg_after = self._sut.get_tained_info()
             if tained_code_before != tained_code_after:
                 reboot = True
                 for msg in tained_msg_after:
@@ -541,34 +492,16 @@ class SerialDispatcher(Dispatcher):
 
             suites_obj = self._download_suites(suites)
 
-            self._logger.info("Reading SUT information")
-
-            # create suite results
-            def _run_cmd(cmd: str) -> str:
-                """
-                Run command, check for returncode and return command's stdout.
-                """
-                ret = self._sut.run_command(cmd, timeout=10)
-                if ret["returncode"] != 0:
-                    raise DispatcherError(f"Can't read information from SUT: {cmd}")
-
-                stdout = ret["stdout"].rstrip()
-
-                return stdout
-
-            distro = _run_cmd(". /etc/os-release; echo \"$ID\"")
-            distro_ver = _run_cmd(". /etc/os-release; echo \"$VERSION_ID\"")
-            kernel = _run_cmd("uname -s -r -v")
-            arch = _run_cmd("uname -m")
+            info = self._sut.get_info()
 
             results = []
             for suite in suites_obj:
                 result = self._run_suite(
                     suite,
-                    distro,
-                    distro_ver,
-                    kernel,
-                    arch)
+                    info["distro"],
+                    info["distro_ver"],
+                    info["kernel"],
+                    info["arch"])
 
                 if result:
                     results.append(result)

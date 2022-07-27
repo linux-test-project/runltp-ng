@@ -178,6 +178,68 @@ class QemuSUT(SUT):
 
         return self._proc.poll() is None
 
+    def ping(self) -> bool:
+        ret = self.run_command("test .", timeout=1)
+        reply_t = ret["exec_time"]
+
+        return reply_t
+
+    def get_info(self) -> dict:
+        self._logger.info("Reading SUT information")
+
+        # create suite results
+        def _run_cmd(cmd: str) -> str:
+            """
+            Run command, check for returncode and return command's stdout.
+            """
+            ret = self.run_command(cmd, timeout=3)
+            if ret["returncode"] != 0:
+                raise SUTError(f"Can't read information from SUT: {cmd}")
+
+            stdout = ret["stdout"].rstrip()
+
+            return stdout
+
+        distro = _run_cmd(". /etc/os-release; echo \"$ID\"")
+        distro_ver = _run_cmd(". /etc/os-release; echo \"$VERSION_ID\"")
+        kernel = _run_cmd("uname -s -r -v")
+        arch = _run_cmd("uname -m")
+
+        ret = {
+            "distro": distro,
+            "distro_ver": distro_ver,
+            "kernel": kernel,
+            "arch": arch,
+        }
+
+        self._logger.debug(ret)
+
+        return ret
+
+    def get_tained_info(self) -> set:
+        self._logger.info("Checking for tained kernel")
+
+        ret = self.run_command(
+            "cat /proc/sys/kernel/tainted",
+            timeout=1)
+
+        if ret["returncode"]:
+            raise SUTError("Can't check for tained kernel")
+
+        tained_num = len(self.TAINED_MSG)
+        code = int(ret["stdout"].rstrip())
+        bits = format(code, f"0{tained_num}b")[::-1]
+
+        messages = []
+        for i in range(0, tained_num):
+            if bits[i] == "1":
+                msg = self.TAINED_MSG[i]
+                messages.append(msg)
+
+        self._logger.debug("code=%d, messages=%s", code, messages)
+
+        return code, messages
+
     def _read_stdout(self, size: int, iobuffer: IOBuffer) -> bytes:
         """
         Read data from stdout.

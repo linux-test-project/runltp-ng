@@ -44,6 +44,27 @@ class SUT:
     machine instance, etc.
     """
 
+    TAINED_MSG = [
+        "proprietary module was loaded",
+        "module was force loaded",
+        "kernel running on an out of specification system",
+        "module was force unloaded",
+        "processor reported a Machine Check Exception (MCE)",
+        "bad page referenced or some unexpected page flags",
+        "taint requested by userspace application",
+        "kernel died recently, i.e. there was an OOPS or BUG",
+        "ACPI table overridden by user",
+        "kernel issued warning",
+        "staging driver was loaded",
+        "workaround for bug in platform firmware applied",
+        "externally-built (“out-of-tree”) module was loaded",
+        "unsigned module was loaded",
+        "soft lockup occurred",
+        "kernel has been live patched",
+        "auxiliary taint, defined for and used by distros",
+        "kernel was built with the struct randomization plugin"
+    ]
+
     @property
     def is_running(self) -> bool:
         """
@@ -55,6 +76,36 @@ class SUT:
     def name(self) -> str:
         """
         Name of the SUT.
+        """
+        raise NotImplementedError()
+
+    def ping(self) -> float:
+        """
+        If SUT is replying and it's available, ping will return time needed to
+        wait for SUT reply.
+        :returns: float
+        """
+        raise NotImplementedError()
+
+    def get_info(self) -> dict:
+        """
+        Return SUT information.
+        :returns: dict
+
+            {
+                "distro": str,
+                "distro_ver": str,
+                "kernel": str,
+                "arch": str,
+            }
+
+        """
+        raise NotImplementedError()
+
+    def get_tained_info(self) -> set:
+        """
+        Return information about kernel if tained.
+        :returns: set(int, list[str]),
         """
         raise NotImplementedError()
 
@@ -105,10 +156,10 @@ class SUT:
 
             {
                 "command": <str>,
-                "timeout": <int>,
+                "timeout": <float>,
                 "returncode": <int>,
                 "stdout": <str>,
-                "exec_time": <int>,
+                "exec_time": <float>,
             }
 
             If None is returned, then callback failed.

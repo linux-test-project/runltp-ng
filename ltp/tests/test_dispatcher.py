@@ -13,6 +13,7 @@ from ltp.events import SyncEventHandler
 from ltp.dispatcher import DispatcherError
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
+from ltp.sut import SUT
 
 
 class TestSerialDispatcher:
@@ -135,7 +136,7 @@ class TestSerialDispatcher:
             events=SyncEventHandler())
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
             with pytest.raises(ValueError):
@@ -158,7 +159,7 @@ class TestSerialDispatcher:
             events=SyncEventHandler())
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
             results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
@@ -208,7 +209,7 @@ class TestSerialDispatcher:
         events.register("test_started", stop_exec_suites)
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
 
@@ -231,7 +232,7 @@ class TestSerialDispatcher:
             events=SyncEventHandler())
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
             results = dispatcher.exec_suites(suites=[
@@ -310,7 +311,7 @@ class TestSerialDispatcher:
             test_timeout=15)
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
             with pytest.raises(SuiteTimeoutError):
@@ -338,7 +339,7 @@ class TestSerialDispatcher:
             test_timeout=0.5)
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
             ret = dispatcher.exec_suites(suites=["sleepsuite"])
@@ -377,7 +378,8 @@ class TestSerialDispatcher:
             def kernel_tained(self, msg: str):
                 if self._first:
                     self._first = False
-                    self._dispatcher._check_tained = MagicMock(
+
+                    sut.get_tained_info = MagicMock(
                         return_value=(self._bit, [self._msg]))
 
                 self.tained_msg = msg
@@ -388,9 +390,9 @@ class TestSerialDispatcher:
         try:
             for i in range(0, 18):
                 bit = math.pow(2, i)
-                msg = SerialDispatcher.TAINED_MSG[i]
+                msg = SUT.TAINED_MSG[i]
 
-                dispatcher._check_tained = MagicMock(return_value=(0, [""]))
+                sut.get_tained_info = MagicMock(return_value=(0, [""]))
 
                 checker = TainChecker(dispatcher, bit, msg)
                 events.register("kernel_tained", checker.kernel_tained)
@@ -428,7 +430,7 @@ class TestSerialDispatcher:
             test_timeout=10)
 
         dispatcher._save_dmesg = MagicMock()
-        dispatcher._check_tained = MagicMock(return_value=(0, ""))
+        sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         class PanicChecker:
             def __init__(self) -> None:

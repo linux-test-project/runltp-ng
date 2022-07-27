@@ -59,6 +59,37 @@ class _TestSUT:
 
     _logger = logging.getLogger("test.sut")
 
+    def test_ping(self, sut):
+        """
+        Test ping method.
+        """
+        sut.communicate(iobuffer=Printer())
+        ping_t = sut.ping()
+
+        assert ping_t > 0
+
+    def test_get_info(self, sut):
+        """
+        Test get_info method.
+        """
+        sut.communicate(iobuffer=Printer())
+        info = sut.get_info()
+
+        assert info["distro"]
+        assert info["distro_ver"]
+        assert info["kernel"]
+        assert info["arch"]
+
+    def test_get_tained_info(self, sut):
+        """
+        Test get_tained_info.
+        """
+        sut.communicate(iobuffer=Printer())
+        code, messages = sut.get_tained_info()
+
+        assert code >= 0
+        assert isinstance(messages, list)
+
     def test_communicate(self, sut):
         """
         Test communicate method.
