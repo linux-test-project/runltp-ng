@@ -323,18 +323,6 @@ class SerialDispatcher(Dispatcher):
 
         self._logger.info("SUT rebooted")
 
-    def _save_dmesg(self, suite_name: str) -> None:
-        """
-        Save the current dmesg status inside temporary folder.
-        """
-        self._logger.info("Storing dmesg information")
-
-        # read kernel messages for the current SUT instance
-        dmesg_stdout = self._sut.run_command("dmesg", timeout=30)
-        command = os.path.join(self._tmpdir, f"dmesg_{suite_name}.log")
-        with open(command, "w", encoding="utf-8") as fdmesg:
-            fdmesg.write(dmesg_stdout["stdout"])
-
     def _run_test(self, test: Test) -> TestResults:
         """
         Execute a test and return the results.
@@ -465,9 +453,6 @@ class SerialDispatcher(Dispatcher):
             distro_ver=distro_ver,
             kernel=kernel,
             arch=arch)
-
-        # read kernel messages for the current SUT instance
-        self._save_dmesg(suite.name)
 
         if suite_results:
             self._events.fire("suite_completed", suite_results)
