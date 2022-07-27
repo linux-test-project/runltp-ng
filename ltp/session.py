@@ -114,22 +114,18 @@ class Session:
         self._logger.info("Distro version: %s", suite_results.distro_ver)
         self._logger.info("")
 
-    def _start_sut(self, ltpdir: str, tmpdir: str, sut_config: dict) -> SUT:
+    def _start_sut(
+        self,
+        ltpdir: str,
+        tmpdir: str,
+        session_tmpdir: str,
+        sut_config: dict) -> SUT:
         """
         Start a new SUT and return it initialized.
         """
         sut_name = sut_config.get("name", None)
         if sut_name not in ["qemu", "host"]:
             raise ValueError(f"{sut_name} is not supported")
-
-        session_tmpdir = TempRotator(tmpdir).rotate()
-
-        self._logger.info(
-            "Running session using temporary folder: %s",
-            session_tmpdir)
-
-        self._setup_debug_log(session_tmpdir)
-        self._events.fire("session_started", session_tmpdir)
 
         testcases = os.path.join(ltpdir, "testcases", "bin")
 
@@ -246,8 +242,21 @@ class Session:
             self._sut = None
             self._dispatcher = None
 
+            session_tmpdir = TempRotator(tmpdir).rotate()
+
+            self._logger.info(
+                "Running session using temporary folder: %s",
+                session_tmpdir)
+
+            self._setup_debug_log(session_tmpdir)
+            self._events.fire("session_started", session_tmpdir)
+
             try:
-                self._sut = self._start_sut(ltpdir, tmpdir, sut_config)
+                self._sut = self._start_sut(
+                    ltpdir,
+                    tmpdir,
+                    session_tmpdir,
+                    sut_config)
 
                 self._logger.info("Created SUT: %s", self._sut.name)
 
@@ -268,7 +277,7 @@ class Session:
                 if suites:
                     self._dispatcher = SerialDispatcher(
                         ltpdir=ltpdir,
-                        tmpdir=tmpdir,
+                        tmpdir=session_tmpdir,
                         sut=self._sut,
                         events=self._events,
                         suite_timeout=self._suite_timeout,
