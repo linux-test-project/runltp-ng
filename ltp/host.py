@@ -42,7 +42,10 @@ class HostSUT(SUT):
     def is_running(self) -> bool:
         return self._initialized
 
-    def ping(self) -> bool:
+    def ping(self) -> float:
+        if not self.is_running:
+            raise SUTError("SUT is not running")
+
         ret = self.run_command("test .", timeout=1)
         reply_t = ret["exec_time"]
 

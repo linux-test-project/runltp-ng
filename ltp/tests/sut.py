@@ -59,6 +59,13 @@ class _TestSUT:
 
     _logger = logging.getLogger("test.sut")
 
+    def test_ping_no_running(self, sut):
+        """
+        Test ping method with no running sut.
+        """
+        with pytest.raises(SUTError):
+            sut.ping()
+
     def test_ping(self, sut):
         """
         Test ping method.

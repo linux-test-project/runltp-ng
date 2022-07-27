@@ -178,7 +178,10 @@ class QemuSUT(SUT):
 
         return self._proc.poll() is None
 
-    def ping(self) -> bool:
+    def ping(self) -> float:
+        if not self.is_running:
+            raise SUTError("SUT is not running")
+
         ret = self.run_command("test .", timeout=1)
         reply_t = ret["exec_time"]
 
