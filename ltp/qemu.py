@@ -591,21 +591,18 @@ class QemuSUT(SUT):
 
             return ret
 
-    def fetch_file(self,
-                   target_path: str,
-                   local_path: str,
-                   timeout: float = 3600) -> None:
+    def fetch_file(
+            self,
+            target_path: str,
+            timeout: float = 3600) -> bytes:
         if not target_path:
             raise ValueError("target path is empty")
-
-        if not local_path:
-            raise ValueError("local path is empty")
 
         if not self.is_running:
             raise SUTError("Virtual machine is not running")
 
         with self._fetch_lock:
-            self._logger.info("Downloading: %s -> %s", target_path, local_path)
+            self._logger.info("Downloading %s", target_path)
 
             transport_dev, transport_path = self._get_transport()
 
@@ -619,15 +616,13 @@ class QemuSUT(SUT):
             if retcode not in [0, signal.SIGHUP, signal.SIGKILL]:
                 raise SUTError(f"Can't send file to {transport_dev}: {stdout}")
 
-            if self._stop:
-                return
-
             # read back data and send it to the local file path
             file_size = os.path.getsize(transport_path)
             start_t = time.time()
 
+            retdata = bytes()
+
             with open(transport_path, "rb") as transport:
-                with open(local_path, "wb") as flocal:
                     while not self._stop and self._last_pos < file_size:
                         if time.time() - start_t >= timeout:
                             self._logger.info(
@@ -635,17 +630,18 @@ class QemuSUT(SUT):
                                 timeout)
 
                             raise SUTTimeoutError(
-                                "Timed out during transfer "
-                                f"(timeout={timeout}):"
-                                f" {target_path} -> {local_path}")
+                                f"Timed out during transfer {target_path}"
+                                f"(timeout={timeout})")
 
                         time.sleep(0.05)
 
                         transport.seek(self._last_pos)
                         data = transport.read(4096)
 
+                        retdata += data
+
                         self._last_pos = transport.tell()
 
-                        flocal.write(data)
-
             self._logger.info("File downloaded")
+
+            return retdata

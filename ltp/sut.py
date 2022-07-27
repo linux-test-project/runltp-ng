@@ -118,16 +118,13 @@ class SUT:
     def fetch_file(
             self,
             target_path: str,
-            local_path: str,
-            timeout: float = 3600) -> None:
+            timeout: float = 3600) -> bytes:
         """
-        Fetch file from target path and download it in the specified
-        local path.
+        Fetch file from target path and return data from target path.
         :param target_path: path of the file to download from target
         :type target_path: str
-        :param local_path: path of the downloaded file on local host
-        :type local_path: str
         :param timeout: timeout before stopping data transfer. Default is 3600
         :type timeout: float
+        :returns: bytes contained in target_path
         """
         raise NotImplementedError()

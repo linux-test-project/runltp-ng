@@ -310,7 +310,9 @@ class SerialDispatcher(Dispatcher):
                 target,
                 local)
 
-            self._sut.fetch_file(target, local)
+            data = self._sut.fetch_file(target)
+            with open(local, 'wb') as localf:
+                localf.write(data)
 
             self._events.fire(
                 "suite_download_completed",

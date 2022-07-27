@@ -197,42 +197,37 @@ class HostSUT(SUT):
     def fetch_file(
             self,
             target_path: str,
-            local_path: str,
-            timeout: float = 3600) -> None:
+            timeout: float = 3600) -> bytes:
         if not target_path:
             raise ValueError("target path is empty")
-
-        if not local_path:
-            raise ValueError("local path is empty")
 
         if not os.path.isfile(target_path):
             raise ValueError("target file doesn't exist")
 
         with self._fetch_lock:
-            self._logger.info("Copy '%s' to '%s'", target_path, local_path)
-
+            self._logger.info("Downloading '%s'", target_path)
             self._stop = False
+
+            retdata = bytes()
 
             try:
                 start_t = time.time()
 
                 with open(target_path, 'rb') as ftarget:
-                    with open(local_path, 'wb+') as flocal:
+                    data = ftarget.read(1024)
+
+                    while data != b'' and not self._stop:
+                        retdata += data
                         data = ftarget.read(1024)
 
-                        while data != b'' and not self._stop:
-                            flocal.write(data)
-                            data = ftarget.read(1024)
+                        if time.time() - start_t >= timeout:
+                            self._logger.info(
+                                "Transfer timed out after %d seconds",
+                                timeout)
 
-                            if time.time() - start_t >= timeout:
-                                self._logger.info(
-                                    "Transfer timed out after %d seconds",
-                                    timeout)
-
-                                raise SUTTimeoutError(
-                                    "Timeout during transfer"
-                                    f" (timeout={timeout}):"
-                                    f" {target_path} -> {local_path}")
+                            raise SUTTimeoutError(
+                                f"Timeout when transfer {target_path}"
+                                f" (timeout={timeout}):")
             except IOError as err:
                 raise SUTError(err)
             finally:
@@ -240,3 +235,5 @@ class HostSUT(SUT):
                     self._logger.info("Copy stopped")
                 else:
                     self._logger.info("File copied")
+
+            return retdata
