@@ -256,24 +256,6 @@ class SerialDispatcher(Dispatcher):
 
         self._logger.info("Dispatcher stopped")
 
-    def _read_available_suites(self) -> list:
-        """
-        Read the available testing suites by looking at runtest folder using
-        ls command.
-        """
-        runtest_dir = os.path.join(self._ltpdir, "runtest")
-
-        ret = self._sut.run_command(f"ls -1 {runtest_dir}", timeout=10)
-
-        retcode = ret["returncode"]
-        if retcode != 0:
-            raise DispatcherError("Can't read runtest folder")
-
-        stdout = ret["stdout"]
-        suites = [name.rstrip() for name in stdout.split("\n")]
-
-        return suites
-
     def _download_suites(self, suites: list) -> list:
         """
         Download all testing suites and return suites objects.
@@ -467,14 +449,6 @@ class SerialDispatcher(Dispatcher):
             raise ValueError("Empty suites list")
 
         with self._exec_lock:
-            # read available testing suites
-            avail_suites = self._read_available_suites()
-
-            if not set(suites).issubset(set(avail_suites)):
-                raise ValueError(
-                    "Some suites are not available. Available suites are: "
-                    f"{' '.join(avail_suites)}")
-
             suites_obj = self._download_suites(suites)
 
             info = self._sut.get_info()
