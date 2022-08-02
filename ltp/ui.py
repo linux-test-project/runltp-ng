@@ -195,9 +195,10 @@ class VerboseUserInterface(ConsoleUserInterface):
     Verbose console based user interface.
     """
 
-    def __init__(self, events: EventHandler) -> None:
+    def __init__(self, events: EventHandler, real_colors: bool = False) -> None:
         self._timed_out = False
         self._buffer = ""
+        self._real_colors = real_colors
 
         events.register("session_started", self.session_started)
         events.register("session_stopped", self.session_stopped)
@@ -305,16 +306,18 @@ class VerboseUserInterface(ConsoleUserInterface):
 
     def test_stdout_line(self, _: Test, line: str) -> None:
         col = ""
-        if "TPASS" in line:
-            col = self.GREEN
-        elif "TFAIL" in line:
-            col = self.RED
-        elif "TSKIP" in line:
-            col = self.YELLOW
-        elif "TCONF" in line:
-            col = self.CYAN
-        elif "Kernel panic" in line:
-            col = self.RED
+
+        if not self._real_colors:
+            if "TPASS" in line:
+                col = self.GREEN
+            elif "TFAIL" in line:
+                col = self.RED
+            elif "TSKIP" in line:
+                col = self.YELLOW
+            elif "TCONF" in line:
+                col = self.CYAN
+            elif "Kernel panic" in line:
+                col = self.RED
 
         self._print(line, color=col)
 

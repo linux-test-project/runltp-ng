@@ -141,14 +141,15 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
     events = SyncEventHandler()
 
     if args.verbose:
-        VerboseUserInterface(events)
+        VerboseUserInterface(events, args.ltp_colors)
     else:
         SimpleUserInterface(events)
 
     session = Session(
         events=events,
         suite_timeout=args.suite_timeout,
-        exec_timeout=args.exec_timeout)
+        exec_timeout=args.exec_timeout,
+        ltp_colors=args.ltp_colors)
 
     session.run_single(
         args.sut,
@@ -169,6 +170,11 @@ def run() -> None:
         "-v",
         action="store_true",
         help="Verbose mode")
+    parser.add_argument(
+        "--ltp-colors",
+        "-C",
+        action="store_true",
+        help="Use LTP tests colors")
     parser.add_argument(
         "--ltp-dir",
         "-l",

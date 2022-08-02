@@ -56,7 +56,8 @@ class Session:
             self,
             events: EventHandler,
             suite_timeout: float = 3600,
-            exec_timeout: float = 3600) -> None:
+            exec_timeout: float = 3600,
+            ltp_colors: bool = False) -> None:
         """
         :param events: generic event handler
         :type events: EventHandler
@@ -64,6 +65,8 @@ class Session:
         :type suite_timeout: float
         :param exec_timeout: timeout before stopping single execution
         :type exec_timeout: float
+        :param ltp_colors: enable LTP colors
+        :type ltp_colors: bool
         """
         self._logger = logging.getLogger("ltp.session")
         self._events = events
@@ -72,6 +75,7 @@ class Session:
         self._sut = None
         self._dispatcher = None
         self._lock_run = threading.Lock()
+        self._ltp_colors = ltp_colors
 
         if not events:
             raise ValueError("events is empty")
@@ -134,6 +138,11 @@ class Session:
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
         env["LTPROOT"] = ltpdir
         env["TMPDIR"] = tmpdir
+
+        if self._ltp_colors:
+            env["LTP_COLORIZE_OUTPUT"] = "1"
+        else:
+            env["LTP_COLORIZE_OUTPUT"] = "0"
 
         sut = None
         timeout = 0.0
