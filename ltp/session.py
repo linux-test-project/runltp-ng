@@ -6,6 +6,7 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import os
+import shutil
 import time
 import logging
 import threading
@@ -301,9 +302,17 @@ class Session:
                         for result in results:
                             self._print_results(result)
 
+                        # store JSON report in the temporary folder,
+                        # eventually store it in the report path
+                        results_report = os.path.join(
+                            session_tmpdir,
+                            "results.json")
+
+                        exporter = JSONExporter()
+                        exporter.save_file(results, results_report)
+
                         if report_path:
-                            exporter = JSONExporter()
-                            exporter.save_file(results, report_path)
+                            shutil.copyfile(results_report, report_path)
 
                 if not suites or (results and len(suites) == len(results)):
                     # if the number of suites is the same of the number
