@@ -133,11 +133,13 @@ class Dispatcher:
         """
         raise NotImplementedError()
 
-    def exec_suites(self, suites: list) -> list:
+    def exec_suites(self, suites: list, skip_tests: list = None) -> list:
         """
         Execute a list of testing suites.
         :param suites: list of Suite objects
         :type suites: list(str)
+        :param skip_tests: list of tests to skip
+        :type skip_tests: list(str)
         :returns: list(SuiteResults)
         """
         raise NotImplementedError()
@@ -396,7 +398,8 @@ class SerialDispatcher(Dispatcher):
             distro: str,
             distro_ver: str,
             kernel: str,
-            arch: str) -> SuiteResults:
+            arch: str,
+            skip_tests: list = None) -> SuiteResults:
         """
         Execute a specific testing suite and return the results.
         """
@@ -412,6 +415,10 @@ class SerialDispatcher(Dispatcher):
         for test in suite.tests:
             if self._stop:
                 break
+
+            if skip_tests and test.name in skip_tests:
+                self._logger.info("Ignoring test: %s", test.name)
+                continue
 
             results = self._run_test(test)
             if not results:
@@ -444,7 +451,7 @@ class SerialDispatcher(Dispatcher):
 
         return suite_results
 
-    def exec_suites(self, suites: list) -> list:
+    def exec_suites(self, suites: list, skip_tests: list = None) -> list:
         if not suites:
             raise ValueError("Empty suites list")
 
@@ -460,7 +467,8 @@ class SerialDispatcher(Dispatcher):
                     info["distro"],
                     info["distro_ver"],
                     info["kernel"],
-                    info["arch"])
+                    info["arch"],
+                    skip_tests=skip_tests)
 
                 if result:
                     results.append(result)

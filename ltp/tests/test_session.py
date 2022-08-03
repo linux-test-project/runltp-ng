@@ -1,6 +1,7 @@
 """
 Unittests for session module.
 """
+import json
 import os
 import stat
 import threading
@@ -200,6 +201,38 @@ class _TestSession:
                     assert not os.path.exists(report_path)
 
             assert tracer.next_event() == "session_completed"
+        finally:
+            session.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_skip_tests(
+            self,
+            tmpdir,
+            sut_config,
+            ltpdir):
+        """
+        Run a session using a specific sut configuration and skipping tests.
+        """
+        report_path = str(tmpdir / "report.json")
+
+        events = SyncEventHandler()
+        try:
+            session = Session(events)
+            session.run_single(
+                sut_config,
+                report_path,
+                ["dirsuite0", "dirsuite1"],
+                None,
+                ltpdir,
+                str(tmpdir),
+                skip_tests=["dir02"])
+
+            report_d = None
+            with open(report_path, 'r') as report_f:
+                report_d = json.loads(report_f.read())
+
+            tests = [item['name'] for item in report_d["suites"][0]["tests"]]
+            assert "dir02" not in tests
         finally:
             session.stop()
 

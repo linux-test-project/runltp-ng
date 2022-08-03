@@ -13,7 +13,7 @@ from ltp.events import SyncEventHandler
 from ltp.dispatcher import DispatcherError
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
-from ltp.sut import SUT
+from ltp.sut import SUT, SUTError
 
 
 class TestSerialDispatcher:
@@ -142,7 +142,7 @@ class TestSerialDispatcher:
             with pytest.raises(ValueError):
                 dispatcher.exec_suites(None)
 
-            with pytest.raises(ValueError):
+            with pytest.raises(SUTError):
                 dispatcher.exec_suites(["this_suite_doesnt_exist"])
         finally:
             sut.stop()

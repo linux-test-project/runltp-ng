@@ -222,6 +222,7 @@ class Session:
 
     # pylint: disable=too-many-locals
     # pylint: disable=too-many-statements
+    # pylint: disable=too-many-arguments
     def run_single(
             self,
             sut_config: dict,
@@ -229,7 +230,8 @@ class Session:
             suites: list,
             command: str,
             ltpdir: str,
-            tmpdir: str) -> None:
+            tmpdir: str,
+            skip_tests: list = None) -> None:
         """
         Run some testing suites with a specific SUT configurations.
         :param sut_config: system under test configuration.
@@ -244,6 +246,8 @@ class Session:
         :type ltpdir: str
         :param tmpdir: temporary directory
         :type tmpdir: str
+        :param skip_tests: list of tests to ignore
+        :type skip_tests: list(str)
         """
         if not sut_config:
             raise ValueError("sut configuration can't be empty")
@@ -295,7 +299,8 @@ class Session:
 
                     self._logger.info("Created dispatcher")
 
-                    results = self._dispatcher.exec_suites(suites)
+                    results = self._dispatcher.exec_suites(
+                        suites, skip_tests=skip_tests)
                     self._dispatcher.stop()
 
                     if results:

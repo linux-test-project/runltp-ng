@@ -157,7 +157,8 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         args.run_suite,
         args.run_cmd,
         args.ltp_dir,
-        args.tmp_dir)
+        args.tmp_dir,
+        args.skip_tests)
 
 
 def run() -> None:
@@ -187,6 +188,11 @@ def run() -> None:
         type=str,
         default="/tmp",
         help="LTP temporary directory")
+    parser.add_argument(
+        "--skip-tests",
+        "-i",
+        nargs="*",
+        help="Skip specific tests")
     parser.add_argument(
         "--suite-timeout",
         "-T",
