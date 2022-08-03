@@ -162,13 +162,13 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
 
     if args.skip_file:
         lines = None
-        with open(args.skip_file, 'r') as skip_file:
+        with open(args.skip_file, 'r', encoding="utf-8") as skip_file:
             lines = skip_file.readlines()
 
         toskip = [
             line.rstrip()
-            for line in lines 
-            if not re.search('^\s+#.*', line)
+            for line in lines
+            if not re.search(r'^\s+#.*', line)
         ]
         skip_tests.extend(toskip)
 
