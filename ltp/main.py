@@ -6,6 +6,7 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import os
+import re
 import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -137,6 +138,9 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
     if not args.run_suite and not args.run_cmd:
         parser.error("--run-suite/--run-cmd are required")
 
+    if args.skip_file and not os.path.isfile(args.skip_file):
+        parser.error(f"'{args.skip_file}' skip file doesn't exist")
+
     # TODO: async events handling
     events = SyncEventHandler()
 
@@ -151,6 +155,23 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         exec_timeout=args.exec_timeout,
         ltp_colors=args.ltp_colors)
 
+    # create list of tests to skip
+    skip_tests = []
+    if args.skip_tests:
+        skip_tests.extend(args.skip_tests)
+
+    if args.skip_file:
+        lines = None
+        with open(args.skip_file, 'r') as skip_file:
+            lines = skip_file.readlines()
+
+        toskip = [
+            line.rstrip()
+            for line in lines 
+            if not re.search('^\s+#.*', line)
+        ]
+        skip_tests.extend(toskip)
+
     session.run_single(
         args.sut,
         args.json_report,
@@ -158,7 +179,7 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         args.run_cmd,
         args.ltp_dir,
         args.tmp_dir,
-        args.skip_tests)
+        skip_tests=skip_tests)
 
 
 def run() -> None:
@@ -193,6 +214,11 @@ def run() -> None:
         "-i",
         nargs="*",
         help="Skip specific tests")
+    parser.add_argument(
+        "--skip-file",
+        "-I",
+        type=str,
+        help="Skip specific tests using a skip file (newline separated item)")
     parser.add_argument(
         "--suite-timeout",
         "-T",
