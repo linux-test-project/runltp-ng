@@ -329,6 +329,7 @@ class QemuSUT(SUT):
 
         return stdout
 
+    # pylint: disable=too-many-branches
     def stop(
         self,
         timeout: float = 30,
@@ -603,24 +604,24 @@ class QemuSUT(SUT):
             retdata = bytes()
 
             with open(transport_path, "rb") as transport:
-                    while not self._stop and self._last_pos < file_size:
-                        if time.time() - start_t >= timeout:
-                            self._logger.info(
-                                "Transfer timed out after %d seconds",
-                                timeout)
+                while not self._stop and self._last_pos < file_size:
+                    if time.time() - start_t >= timeout:
+                        self._logger.info(
+                            "Transfer timed out after %d seconds",
+                            timeout)
 
-                            raise SUTTimeoutError(
-                                f"Timed out during transfer {target_path}"
-                                f"(timeout={timeout})")
+                        raise SUTTimeoutError(
+                            f"Timed out during transfer {target_path}"
+                            f"(timeout={timeout})")
 
-                        time.sleep(0.05)
+                    time.sleep(0.05)
 
-                        transport.seek(self._last_pos)
-                        data = transport.read(4096)
+                    transport.seek(self._last_pos)
+                    data = transport.read(4096)
 
-                        retdata += data
+                    retdata += data
 
-                        self._last_pos = transport.tell()
+                    self._last_pos = transport.tell()
 
             self._logger.info("File downloaded")
 
