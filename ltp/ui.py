@@ -29,12 +29,14 @@ class ConsoleUserInterface:
     CYAN = "\033[1;36m"
     RESET = "\033[2J"
 
-    @staticmethod
-    def _print(msg: str, color: str = None, end: str = "\n"):
+    def __init__(self, colors_rule: str = "default") -> None:
+        self._colors_rule = colors_rule
+
+    def _print(self, msg: str, color: str = None, end: str = "\n"):
         """
         Print a message.
         """
-        if color:
+        if color and self._colors_rule != "none":
             print(color + msg + '\033[0m', end=end)
         else:
             print(msg, end=end)
@@ -45,7 +47,9 @@ class SimpleUserInterface(ConsoleUserInterface):
     Console based user interface without many fancy stuff.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, colors_rule: str = "default") -> None:
+        super().__init__(colors_rule=colors_rule)
+
         self._sut_not_responding = False
         self._kernel_panic = False
         self._kernel_tained = None
@@ -195,10 +199,11 @@ class VerboseUserInterface(ConsoleUserInterface):
     Verbose console based user interface.
     """
 
-    def __init__(self, real_colors: bool = False) -> None:
+    def __init__(self, colors_rule: str = "default") -> None:
+        super().__init__(colors_rule=colors_rule)
+
         self._timed_out = False
         self._buffer = ""
-        self._real_colors = real_colors
 
         ltp.events.register("session_started", self.session_started)
         ltp.events.register("session_stopped", self.session_stopped)
@@ -308,7 +313,7 @@ class VerboseUserInterface(ConsoleUserInterface):
     def test_stdout_line(self, _: Test, line: str) -> None:
         col = ""
 
-        if not self._real_colors:
+        if self._colors_rule == "default":
             if "TPASS" in line:
                 col = self.GREEN
             elif "TFAIL" in line:

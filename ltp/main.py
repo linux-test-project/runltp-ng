@@ -141,14 +141,14 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         parser.error(f"'{args.skip_file}' skip file doesn't exist")
 
     if args.verbose:
-        VerboseUserInterface(args.ltp_colors)
+        VerboseUserInterface(args.colors_rule)
     else:
-        SimpleUserInterface()
+        SimpleUserInterface(args.colors_rule)
 
     session = Session(
         suite_timeout=args.suite_timeout,
         exec_timeout=args.exec_timeout,
-        ltp_colors=args.ltp_colors)
+        colors_rule=args.colors_rule)
 
     # create list of tests to skip
     skip_tests = []
@@ -188,10 +188,10 @@ def run() -> None:
         action="store_true",
         help="Verbose mode")
     parser.add_argument(
-        "--ltp-colors",
+        "--colors-rule",
         "-C",
-        action="store_true",
-        help="Use LTP tests colors")
+        default="default",
+        help="Type of colors rule we want [none, default, ltp]")
     parser.add_argument(
         "--ltp-dir",
         "-l",

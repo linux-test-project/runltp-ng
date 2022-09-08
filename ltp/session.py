@@ -56,7 +56,7 @@ class Session:
             self,
             suite_timeout: float = 3600,
             exec_timeout: float = 3600,
-            ltp_colors: bool = False) -> None:
+            colors_rule: str = "default") -> None:
         """
         :param suite_timeout: timeout before stopping testing suite
         :type suite_timeout: float
@@ -71,7 +71,7 @@ class Session:
         self._sut = None
         self._dispatcher = None
         self._lock_run = threading.Lock()
-        self._ltp_colors = ltp_colors
+        self._colors_rule = colors_rule
 
     @staticmethod
     def _setup_debug_log(tmpdir: str) -> None:
@@ -132,7 +132,7 @@ class Session:
         env["LTPROOT"] = ltpdir
         env["TMPDIR"] = tmpdir
 
-        if self._ltp_colors:
+        if self._colors_rule == "ltp":
             env["LTP_COLORIZE_OUTPUT"] = "1"
         else:
             env["LTP_COLORIZE_OUTPUT"] = "0"
