@@ -87,6 +87,59 @@ def _get_qemu_config(params: list) -> dict:
     return config
 
 
+def _get_ssh_config(params: list) -> dict:
+    """
+    Return the SSH SUT configuration.
+    """
+    config = _from_params_to_config(params)
+
+    if 'host' not in config:
+        raise argparse.ArgumentTypeError(
+            "'host' parameter is required by qemu SUT")
+
+    defaults = (
+        'host',
+        'port',
+        'user',
+        'password',
+        'key_file',
+        'timeout',
+    )
+
+    if not set(config).issubset(defaults):
+        raise argparse.ArgumentTypeError(
+            "Some parameters are not supported. "
+            f"Please use the following: {', '.join(defaults)}")
+
+    if "host" in config:
+        if not config["host"]:
+            raise argparse.ArgumentTypeError("host doesn't exist")
+
+    if "port" in config:
+        port = config["port"]
+        if not str.isdigit(port) and int(port) not in range(1, 65536):
+            raise argparse.ArgumentTypeError(
+                "port must be and integer inside [1-65535]")
+
+    if "user" in config:
+        if not config["user"]:
+            raise argparse.ArgumentTypeError("user is empty")
+
+    if "password" in config:
+        if not config["password"]:
+            raise argparse.ArgumentTypeError("password is empty")
+
+    if "timeout" in config:
+        if not str.isdigit(config["timeout"]):
+            raise argparse.ArgumentTypeError("timeout must be an integer")
+
+    if "key_file" in config:
+        if not os.path.isfile(config["key_file"]):
+            raise argparse.ArgumentTypeError("key_file doesn't exist")
+
+    return config
+
+
 def _sut_config(value: str) -> dict:
     """
     Return a SUT configuration according with input string.
@@ -111,6 +164,13 @@ def _sut_config(value: str) -> dict:
         msg += "\tserial: type of serial protocol. isa|virtio (default: isa)\n"
         msg += "\tvirtfs: directory to mount inside VM\n"
         msg += "\tro_image: path of the image that will exposed as read only\n"
+        msg += "\nssh parameters:\n"
+        msg += "\thost: IP address of the SUT (default: localhost)\n"
+        msg += "\tport: TCP port of the service (default: 22)\n"
+        msg += "\tuser: name of the user (default: root)\n"
+        msg += "\tpassword: user's password\n"
+        msg += "\ttimeout: connection timeout in seconds (default: 10)\n"
+        msg += "\tkey_file: private key location\n"
 
         return dict(help=msg)
 
@@ -123,6 +183,8 @@ def _sut_config(value: str) -> dict:
     config = None
     if name == 'qemu':
         config = _get_qemu_config(params[1:])
+    elif name == 'ssh':
+        config = _get_ssh_config(params[1:])
     elif name == 'host':
         config = _from_params_to_config(params[1:])
     else:

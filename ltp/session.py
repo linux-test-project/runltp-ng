@@ -15,6 +15,7 @@ from ltp.sut import SUT
 from ltp.sut import IOBuffer
 from ltp.qemu import QemuSUT
 from ltp.host import HostSUT
+from ltp.ssh import SSHSUT
 from ltp.results import SuiteResults
 from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
@@ -127,8 +128,8 @@ class Session:
         """
         Start a new SUT and return it initialized.
         """
-        sut_name = sut_config.get("name", None)
-        if sut_name not in ["qemu", "host"]:
+        sut_name = sut_config.pop("name", None)
+        if sut_name not in ["qemu", "host", "ssh"]:
             raise ValueError(f"{sut_name} is not supported")
 
         testcases = os.path.join(ltpdir, "testcases", "bin")
@@ -145,16 +146,20 @@ class Session:
         else:
             env["LTP_COLORIZE_OUTPUT"] = "1"
 
+        config = {}
+        config['env'] = env
+        config['cwd'] = testcases
+        config['tmpdir'] = tmpdir.abspath
+        config.update(sut_config)
+
         sut = None
         timeout = 0.0
-        if sut_name == 'qemu':
-            config = {}
-            config['env'] = env
-            config['cwd'] = testcases
-            config['tmpdir'] = tmpdir.abspath
-            config.update(sut_config)
 
+        if sut_name == 'qemu':
             sut = QemuSUT(**config)
+            timeout = 360.0
+        elif sut_name == 'ssh':
+            sut = SSHSUT(**config)
             timeout = 360.0
         else:
             sut = HostSUT(cwd=ltpdir, env=env)
