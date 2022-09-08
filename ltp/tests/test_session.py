@@ -6,35 +6,34 @@ import os
 import stat
 import threading
 import pytest
+import ltp.events
 from ltp.session import Session
-from ltp.events import EventHandler
-from ltp.events import SyncEventHandler
 
 
 class EventsTracer:
     """
     Trace events and check they all have been called.
     """
+
     def __init__(
-        self,
-        events: EventHandler,
-        tmpdir: str,
-        sut_name: str,
-        command: str) -> None:
+            self,
+            tmpdir: str,
+            sut_name: str,
+            command: str) -> None:
         self._counter = -1
         self._messages = []
         self._tmpdir = tmpdir
         self._sut_name = sut_name
         self._command = command
 
-        events.register("session_started", self._session_started)
-        events.register("session_completed", self._session_completed)
-        events.register("session_stopped", self._session_stopped)
-        events.register("session_error", self._session_error)
-        events.register("sut_start", self._sut_start)
-        events.register("sut_stop", self._sut_stop)
-        events.register("run_cmd_start", self._run_cmd_start)
-        events.register("run_cmd_stop", self._run_cmd_stop)
+        ltp.events.register("session_started", self._session_started)
+        ltp.events.register("session_completed", self._session_completed)
+        ltp.events.register("session_stopped", self._session_stopped)
+        ltp.events.register("session_error", self._session_error)
+        ltp.events.register("sut_start", self._sut_start)
+        ltp.events.register("sut_stop", self._sut_stop)
+        ltp.events.register("run_cmd_start", self._run_cmd_start)
+        ltp.events.register("run_cmd_stop", self._run_cmd_stop)
 
     def next_event(self) -> str:
         self._counter += 1
@@ -71,10 +70,18 @@ class EventsTracer:
         assert retcode == 0
         self._messages.append("run_cmd_stop")
 
+
 class _TestSession:
     """
     Tests for Session implementation.
     """
+
+    @pytest.fixture(autouse=True, scope="function")
+    def setup(self):
+        """
+        Setup events before test.
+        """
+        ltp.events.reset()
 
     @pytest.fixture
     def ltpdir(self):
@@ -167,15 +174,13 @@ class _TestSession:
         if use_report:
             report_path = str(tmpdir / "report.json")
 
-        events = SyncEventHandler()
         tracer = EventsTracer(
-            events,
             str(tmpdir),
             sut_config["name"],
             command)
 
         try:
-            session = Session(events)
+            session = Session()
             session.run_single(
                 sut_config,
                 report_path,
@@ -215,9 +220,8 @@ class _TestSession:
         """
         report_path = str(tmpdir / "report.json")
 
-        events = SyncEventHandler()
         try:
-            session = Session(events)
+            session = Session()
             session.run_single(
                 sut_config,
                 report_path,
@@ -243,20 +247,19 @@ class _TestSession:
         """
         report_path = str(tmpdir / "report.json")
 
-        events = SyncEventHandler()
-        session = Session(events)
+        session = Session()
 
         def _threaded():
             session.stop(timeout=3)
 
         thread = threading.Thread(target=_threaded, daemon=True)
+
         def stop_exec_suites(test):
             thread.start()
 
-        events.register("test_started", stop_exec_suites)
+        ltp.events.register("test_started", stop_exec_suites)
 
         tracer = EventsTracer(
-            events,
             str(tmpdir),
             sut_config["name"],
             None)
@@ -276,6 +279,7 @@ class _TestSession:
         assert tracer.next_event() == "sut_start"
         assert tracer.next_event() == "sut_stop"
         assert tracer.next_event() == "session_stopped"
+
 
 class TestHostSession(_TestSession):
     """

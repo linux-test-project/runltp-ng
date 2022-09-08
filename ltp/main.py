@@ -10,7 +10,6 @@ import re
 import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
-from ltp.events import SyncEventHandler
 from ltp.session import Session
 from ltp.ui import SimpleUserInterface
 from ltp.ui import VerboseUserInterface
@@ -141,16 +140,12 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
     if args.skip_file and not os.path.isfile(args.skip_file):
         parser.error(f"'{args.skip_file}' skip file doesn't exist")
 
-    # TODO: async events handling
-    events = SyncEventHandler()
-
     if args.verbose:
-        VerboseUserInterface(events, args.ltp_colors)
+        VerboseUserInterface(args.ltp_colors)
     else:
-        SimpleUserInterface(events)
+        SimpleUserInterface()
 
     session = Session(
-        events=events,
         suite_timeout=args.suite_timeout,
         exec_timeout=args.exec_timeout,
         ltp_colors=args.ltp_colors)

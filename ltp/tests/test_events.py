@@ -2,96 +2,100 @@
 Unittest for events module.
 """
 import pytest
-from ltp.events import SyncEventHandler
+import ltp.events
 
-class _TestEventHandler:
+
+@pytest.fixture(autouse=True, scope="function")
+def setup():
     """
-    Test EventHandlaer implementations.
+    Setup events before test.
     """
-
-    @pytest.fixture
-    def handler(self):
-        """
-        Fixture exposing EventHandler implementation.
-        """
-        raise NotImplementedError()
-
-    def test_register_errors(self, handler):
-        """
-        Test register method during errors.
-        """
-        def funct():
-            pass
-
-        with pytest.raises(ValueError):
-            handler.register(None, funct)
-
-        with pytest.raises(ValueError):
-            handler.register("myevent", None)
-
-    def test_register(self, handler):
-        """
-        Test register method.
-        """
-        def funct():
-            pass
-
-        handler.register("myevent", funct)
-        assert handler.is_registered("myevent")
-
-    def test_unregister_errors(self, handler):
-        """
-        Test unregister method during errors.
-        """
-        with pytest.raises(ValueError):
-            handler.unregister(None)
-
-    def test_unregister(self, handler):
-        """
-        Test unregister method.
-        """
-        def funct():
-            pass
-
-        handler.register("myevent", funct)
-        assert handler.is_registered("myevent")
-
-    def test_fire_errors(self, handler):
-        """
-        Test fire method during errors.
-        """
-        with pytest.raises(ValueError):
-            handler.fire(None, "prova")
-
-    def test_fire(self, handler):
-        """
-        Test fire method.
-        """
-        def funct(_):
-            pass
-
-        handler.register("myevent", funct)
-        assert handler.is_registered("myevent")
-
-        called = []
-        def funct2(param):
-            called.append(param)
-
-        handler.register("myevent", funct2)
-        assert handler.is_registered("myevent")
-
-        for i in range(1000):
-            handler.fire("myevent", f"index{i}")
-
-        for i in range(1000):
-            assert called[i] == f"index{i}"
+    ltp.events.reset()
 
 
-class TestSyncEventHandler(_TestEventHandler):
+def test_reset():
     """
-    Test SyncEventHandler implementation.
+    Test reset method.
     """
+    def funct():
+        pass
 
-    @pytest.fixture
-    def handler(self):
-        return SyncEventHandler()
+    ltp.events.register("myevent", funct)
+    assert ltp.events.is_registered("myevent")
+
+    ltp.events.reset()
+    assert not ltp.events.is_registered("myevent")
+
+
+def test_register_errors():
+    """
+    Test register method during errors.
+    """
+    def funct():
+        pass
+
+    with pytest.raises(ValueError):
+        ltp.events.register(None, funct)
+
+    with pytest.raises(ValueError):
+        ltp.events.register("myevent", None)
+
+
+def test_register():
+    """
+    Test register method.
+    """
+    def funct():
+        pass
+
+    ltp.events.register("myevent", funct)
+    assert ltp.events.is_registered("myevent")
+
+
+def test_unregister_errors():
+    """
+    Test unregister method during errors.
+    """
+    with pytest.raises(ValueError):
+        ltp.events.unregister(None)
+
+
+def test_unregister():
+    """
+    Test unregister method.
+    """
+    def funct():
+        pass
+
+    ltp.events.register("myevent", funct)
+    assert ltp.events.is_registered("myevent")
+
+    ltp.events.unregister("myevent")
+    assert not ltp.events.is_registered("myevent")
+
+
+def test_fire_errors():
+    """
+    Test fire method during errors.
+    """
+    with pytest.raises(ValueError):
+        ltp.events.fire(None, "prova")
+
+
+def test_fire():
+    """
+    Test fire method.
+    """
+    called = []
+
+    def funct(param):
+        called.append(param)
+
+    ltp.events.register("myevent", funct)
+    assert ltp.events.is_registered("myevent")
+
+    for i in range(1000):
+        ltp.events.fire("myevent", f"index{i}")
+
+    for i in range(1000):
+        assert called[i] == f"index{i}"

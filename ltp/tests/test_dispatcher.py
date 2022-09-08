@@ -8,18 +8,25 @@ import threading
 import pytest
 from unittest.mock import MagicMock
 from unittest.mock import PropertyMock
+import ltp.events
+from ltp.sut import SUT
+from ltp.sut import SUTError
 from ltp.host import HostSUT
-from ltp.events import SyncEventHandler
-from ltp.dispatcher import DispatcherError
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
-from ltp.sut import SUT, SUTError
 
 
 class TestSerialDispatcher:
     """
     Test SerialDispatcher implementation.
     """
+
+    @pytest.fixture(autouse=True, scope="function")
+    def setup(self):
+        """
+        Setup events before test.
+        """
+        ltp.events.reset()
 
     @pytest.fixture
     def sut(self, tmpdir):
@@ -100,29 +107,19 @@ class TestSerialDispatcher:
             SerialDispatcher(
                 tmpdir=str(tmpdir),
                 ltpdir=None,
-                sut=sut,
-                events=SyncEventHandler())
+                sut=sut)
 
         with pytest.raises(ValueError):
             SerialDispatcher(
                 ltpdir=str(tmpdir),
                 tmpdir="this_folder_doesnt_exist",
-                sut=sut,
-                events=SyncEventHandler())
+                sut=sut)
 
         with pytest.raises(ValueError):
             SerialDispatcher(
                 tmpdir=str(tmpdir),
                 ltpdir=str(tmpdir),
-                sut=None,
-                events=SyncEventHandler())
-
-        with pytest.raises(ValueError):
-            SerialDispatcher(
-                tmpdir=str(tmpdir),
-                ltpdir=str(tmpdir),
-                sut=sut,
-                events=None)
+                sut=None)
 
     @pytest.mark.usefixtures("prepare_tmpdir")
     def test_exec_suites_bad_args(self, tmpdir, sut):
@@ -132,8 +129,7 @@ class TestSerialDispatcher:
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
-            sut=sut,
-            events=SyncEventHandler())
+            sut=sut)
 
         dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
@@ -155,8 +151,7 @@ class TestSerialDispatcher:
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
-            sut=sut,
-            events=SyncEventHandler())
+            sut=sut)
 
         dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
@@ -191,12 +186,10 @@ class TestSerialDispatcher:
         """
         Test stop method during exec_suites.
         """
-        events = SyncEventHandler()
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
-            sut=sut,
-            events=events)
+            sut=sut)
 
         def _threaded():
             dispatcher.stop(timeout=3)
@@ -206,7 +199,7 @@ class TestSerialDispatcher:
         def stop_exec_suites(test):
             thread.start()
 
-        events.register("test_started", stop_exec_suites)
+        ltp.events.register("test_started", stop_exec_suites)
 
         dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
@@ -228,8 +221,7 @@ class TestSerialDispatcher:
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(tmpdir / "ltp"),
-            sut=sut,
-            events=SyncEventHandler())
+            sut=sut)
 
         dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
@@ -306,7 +298,6 @@ class TestSerialDispatcher:
             tmpdir=str(tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
-            events=SyncEventHandler(),
             suite_timeout=0.5,
             test_timeout=15)
 
@@ -334,7 +325,6 @@ class TestSerialDispatcher:
             tmpdir=str(tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
-            events=SyncEventHandler(),
             suite_timeout=15,
             test_timeout=0.5)
 
@@ -355,12 +345,10 @@ class TestSerialDispatcher:
         """
         ltpdir = tmpdir / "ltp"
 
-        events = SyncEventHandler()
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
-            events=events,
             suite_timeout=0.5,
             test_timeout=15)
 
@@ -395,13 +383,13 @@ class TestSerialDispatcher:
                 sut.get_tained_info = MagicMock(return_value=(0, [""]))
 
                 checker = TainChecker(dispatcher, bit, msg)
-                events.register("kernel_tained", checker.kernel_tained)
-                events.register("sut_restart", checker.sut_restart)
+                ltp.events.register("kernel_tained", checker.kernel_tained)
+                ltp.events.register("sut_restart", checker.sut_restart)
 
                 dispatcher.exec_suites(suites=["dirsuite0"])
 
-                events.unregister("kernel_tained")
-                events.unregister("sut_restart")
+                ltp.events.unregister("kernel_tained")
+                ltp.events.unregister("sut_restart")
 
                 assert msg == checker.tained_msg
                 assert checker.rebooted
@@ -420,12 +408,10 @@ class TestSerialDispatcher:
         crashsuite = runtest.join("crashme")
         crashsuite.write(f"kernel_panic echo Kernel panic")
 
-        events = SyncEventHandler()
         dispatcher = SerialDispatcher(
             tmpdir=str(tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
-            events=events,
             suite_timeout=10,
             test_timeout=10)
 
@@ -444,8 +430,8 @@ class TestSerialDispatcher:
                 self.rebooted = True
 
         checker = PanicChecker()
-        events.register("kernel_panic", checker.kernel_panic)
-        events.register("sut_restart", checker.sut_restart)
+        ltp.events.register("kernel_panic", checker.kernel_panic)
+        ltp.events.register("sut_restart", checker.sut_restart)
 
         try:
             ret = dispatcher.exec_suites(suites=["crashme"])

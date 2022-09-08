@@ -6,121 +6,81 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 
+_EVENTS = {}
 
-class EventHandler:
+
+def reset() -> None:
     """
-    Synchronous event handler class.
+    Reset the entire events queue.
     """
-
-    def is_registered(self, event_name: str) -> bool:
-        """
-        Returns True if ``event_name`` is registered.
-        :param event_name: name of the event
-        :type event_name: str
-        :returns: True if registered, False otherwise
-        """
-        raise NotImplementedError()
-
-    def register(self, event_name: str, callback: callable) -> None:
-        """
-        Register an event with ``event_name``.
-        :param event_name: name of the event
-        :type event_name: str
-        :param callback: function associated with ``event_name``
-        :type callback: callable
-        """
-        raise NotImplementedError()
-
-    def unregister(self, event_name: str) -> None:
-        """
-        Unregister an event with ``event_name``.
-        :param event_name: name of the event
-        :type event_name: str
-        """
-        raise NotImplementedError()
-
-    def fire(self, event_name: str, *args: list, **kwargs: dict) -> None:
-        """
-        Fire a specific event.
-        :param event_name: name of the event
-        :type event_name: str
-        :param args: Arguments to be passed to callback functions execution.
-        :type args: list
-        :param kwargs: Keyword arguments to be passed to callback functions execution.
-        :type kwargs: dict
-        """
-        raise NotImplementedError()
+    _EVENTS.clear()
 
 
-class SyncEventHandler(EventHandler):
+def is_registered(event_name: str) -> bool:
     """
-    Synchronous event handler class.
+    Returns True if ``event_name`` is registered.
+    :param event_name: name of the event
+    :type event_name: str
+    :returns: True if registered, False otherwise
     """
+    if not event_name:
+        raise ValueError("event_name is empty")
 
-    def __init__(self) -> None:
-        self._events = {}
+    return event_name in _EVENTS
 
-    def is_registered(self, event_name: str) -> bool:
-        """
-        Returns True if ``event_name`` is registered.
-        :param event_name: name of the event
-        :type event_name: str
-        :returns: True if registered, False otherwise
-        """
-        if not event_name:
-            raise ValueError("event_name is empty")
 
-        return event_name in self._events
+def register(event_name: str, callback: callable) -> None:
+    """
+    Register an event with ``event_name``.
+    :param event_name: name of the event
+    :type event_name: str
+    :param callback: function associated with ``event_name``
+    :type callback: callable
+    """
+    if not event_name:
+        raise ValueError("event_name is empty")
 
-    def register(self, event_name: str, callback: callable) -> None:
-        """
-        Register an event with ``event_name``.
-        :param event_name: name of the event
-        :type event_name: str
-        :param callback: function associated with ``event_name``
-        :type callback: callable
-        """
-        if not event_name:
-            raise ValueError("event_name is empty")
+    if not callback:
+        raise ValueError("callback is empty")
 
-        if not callback:
-            raise ValueError("callback is empty")
+    if not is_registered(event_name):
+        _EVENTS[event_name] = []
 
-        if not self.is_registered(event_name):
-            self._events[event_name] = []
+    _EVENTS[event_name].append(callback)
 
-        self._events[event_name].append(callback)
 
-    def unregister(self, event_name: str) -> None:
-        """
-        Unregister an event with ``event_name``.
-        :param event_name: name of the event
-        :type event_name: str
-        """
-        if not event_name:
-            raise ValueError("event_name is empty")
+def unregister(event_name: str) -> None:
+    """
+    Unregister an event with ``event_name``.
+    :param event_name: name of the event
+    :type event_name: str
+    """
+    if not event_name:
+        raise ValueError("event_name is empty")
 
-        if not self.is_registered(event_name):
-            raise ValueError(f"{event_name} is not registered")
+    if not is_registered(event_name):
+        raise ValueError(f"{event_name} is not registered")
 
-        self._events.pop(event_name)
+    _EVENTS.pop(event_name)
 
-    def fire(self, event_name: str, *args: list, **kwargs: dict) -> None:
-        """
-        Fire a specific event.
-        :param event_name: name of the event
-        :type event_name: str
-        :param args: Arguments to be passed to callback functions execution.
-        :type args: list
-        :param kwargs: Keyword arguments to be passed to callback functions execution.
-        :type kwargs: dict
-        """
-        if not event_name:
-            raise ValueError("event_name is empty")
 
-        if not self.is_registered(event_name):
-            # ignore raising the error
-            return
+def fire(event_name: str, *args: list, **kwargs: dict) -> None:
+    """
+    Fire a specific event.
+    :param event_name: name of the event
+    :type event_name: str
+    :param args: Arguments to be passed to callback functions execution.
+    :type args: list
+    :param kwargs: Keyword arguments to be passed to callback functions
+        execution.
+    :type kwargs: dict
+    """
+    if not event_name:
+        raise ValueError("event_name is empty")
 
-        for callback in self._events[event_name]:
-            callback(*args, **kwargs)
+    if not is_registered(event_name):
+        # ignore raising the error
+        return
+
+    for callback in _EVENTS[event_name]:
+        callback(*args, **kwargs)
