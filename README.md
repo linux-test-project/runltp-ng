@@ -106,3 +106,8 @@ To run unittests:
 To run linting checks:
 
     pylint --rcfile=pylint.ini ./ltp
+
+Requirements
+============
+
+Check `requirements.txt` for more information about package requirements.
