@@ -61,6 +61,11 @@ Some basic commands are the following:
     ./runltp-ng --sut=qemu:image=folder/image.qcow2 \
         --run-suite syscalls dio
 
+    # run syscalls and dio testing suites via SSH
+    # NOTE: paramiko and scp packages must be installed in the system
+    ./runltp-ng --sut=ssh:host=myhost.com:user=root:key_file=myhost_id_rsa \
+        --run-suite syscalls dio
+
 It's possible to run a single command before running testing suites using
 `--run-cmd` option as following:
 
