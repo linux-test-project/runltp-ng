@@ -10,6 +10,7 @@ import re
 import time
 import logging
 import threading
+import ltp.data
 import ltp.events
 from ltp import LTPException
 from ltp.sut import IOBuffer
@@ -18,7 +19,6 @@ from ltp.suite import Test
 from ltp.suite import Suite
 from ltp.results import TestResults
 from ltp.results import SuiteResults
-from ltp.metadata import Runtest
 
 
 class DispatcherError(LTPException):
@@ -224,8 +224,6 @@ class SerialDispatcher(Dispatcher):
         if not os.path.isdir(tmp_suites):
             os.mkdir(tmp_suites)
 
-        self._runtest = Runtest(tmp_suites)
-
     @property
     def is_running(self) -> bool:
         # some pylint versions don't recognize threading.Lock::locked
@@ -257,31 +255,25 @@ class SerialDispatcher(Dispatcher):
         """
         Download all testing suites and return suites objects.
         """
-        # download all runtest files
+        suites_obj = []
+
         for suite_name in suites:
             target = os.path.join(self._ltpdir, "runtest", suite_name)
-            local = os.path.join(self._tmpdir, "runtest", suite_name)
 
             ltp.events.fire(
                 "suite_download_started",
                 suite_name,
-                target,
-                local)
+                target)
 
             data = self._sut.fetch_file(target)
-            with open(local, 'wb') as localf:
-                localf.write(data)
+            data_str = data.decode(encoding="utf-8", errors="ignore")
 
             ltp.events.fire(
                 "suite_download_completed",
                 suite_name,
-                target,
-                local)
+                target)
 
-        # load all suites objects
-        suites_obj = []
-        for suite_name in suites:
-            suite = self._runtest.read_suite(suite_name)
+            suite = ltp.data.read_runtest(suite_name, data_str)
             suites_obj.append(suite)
 
         return suites_obj

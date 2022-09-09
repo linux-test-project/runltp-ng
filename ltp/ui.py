@@ -8,8 +8,8 @@
 import platform
 import traceback
 import ltp.events
-from ltp.metadata import Test
-from ltp.metadata import Suite
+from ltp.suite import Test
+from ltp.suite import Suite
 from ltp.results import TestResults
 from ltp.results import SuiteResults
 
@@ -117,8 +117,7 @@ class SimpleUserInterface(ConsoleUserInterface):
     def suite_download_started(
             self,
             name: str,
-            target: str,
-            local: str) -> None:
+            target: str) -> None:
         self._print(f"Downloading suite: {name}")
 
     def suite_started(self, suite: Suite) -> None:
@@ -277,9 +276,8 @@ class VerboseUserInterface(ConsoleUserInterface):
     def suite_download_started(
             self,
             name: str,
-            target: str,
-            local: str) -> None:
-        self._print(f"Downloading suite: {target} -> {local}")
+            target: str) -> None:
+        self._print(f"Downloading suite: {target}")
 
     def suite_started(self, suite: Suite) -> None:
         self._print(f"Starting suite: {suite.name}")

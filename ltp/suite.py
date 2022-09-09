@@ -6,6 +6,7 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 
+
 class Suite:
     """
     Testing suite definition class.
@@ -23,7 +24,7 @@ class Suite:
 
     def __repr__(self) -> str:
         return \
-            f"name: '{self._name}'," \
+            f"name: '{self._name}', " \
             f"tests: {self._tests}"
 
     @property
@@ -61,8 +62,8 @@ class Test:
 
     def __repr__(self) -> str:
         return \
-            f"name: '{self._name}'," \
-            f"commmand: '{self._cmd}'," \
+            f"name: '{self._name}', " \
+            f"commmand: '{self._cmd}', " \
             f"arguments: {self._args}"
 
     @property
