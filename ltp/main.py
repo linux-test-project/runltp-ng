@@ -188,9 +188,10 @@ def run() -> None:
         action="store_true",
         help="Verbose mode")
     parser.add_argument(
-        "--colors-rule",
+        "--color",
         "-C",
         default="default",
+        dest="colors_rule",
         help="Type of colors rule we want [none, default, ltp]")
     parser.add_argument(
         "--ltp-dir",
