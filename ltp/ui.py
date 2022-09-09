@@ -8,8 +8,8 @@
 import platform
 import traceback
 import ltp.events
-from ltp.suite import Test
-from ltp.suite import Suite
+from ltp.data import Test
+from ltp.data import Suite
 from ltp.results import TestResults
 from ltp.results import SuiteResults
 

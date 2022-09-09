@@ -3,8 +3,8 @@ Unit tests for Exporter implementations.
 """
 import json
 import pytest
-from ltp.suite import Test
-from ltp.suite import Suite
+from ltp.data import Test
+from ltp.data import Suite
 from ltp.results import SuiteResults, TestResults
 from ltp.export import JSONExporter
 
