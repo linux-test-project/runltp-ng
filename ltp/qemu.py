@@ -279,10 +279,10 @@ class QemuSUT(SUT):
                 raise SUTError(err)
 
     def _wait_for(
-        self,
-        message: str,
-        timeout: float,
-        iobuffer: IOBuffer) -> str:
+            self,
+            message: str,
+            timeout: float,
+            iobuffer: IOBuffer) -> str:
         """
         Wait a string from stdout.
         """
@@ -319,7 +319,7 @@ class QemuSUT(SUT):
         self._logger.debug("Execute (timeout %f): %s", timeout, repr(command))
 
         self._write_stdin(command)
-        self._wait_for(command, 5, iobuffer) # ignore echo
+        self._wait_for(command, 5, iobuffer)  # ignore echo
 
         stdout = self._wait_for(self._ps1, timeout, iobuffer)
 
@@ -331,9 +331,9 @@ class QemuSUT(SUT):
 
     # pylint: disable=too-many-branches
     def stop(
-        self,
-        timeout: float = 30,
-        iobuffer: IOBuffer = None) -> None:
+            self,
+            timeout: float = 30,
+            iobuffer: IOBuffer = None) -> None:
         if not self.is_running:
             return
 
@@ -412,9 +412,9 @@ class QemuSUT(SUT):
             self._stop = False
 
     def force_stop(
-        self,
-        timeout: float = 30,
-        iobuffer: IOBuffer = None) -> None:
+            self,
+            timeout: float = 30,
+            iobuffer: IOBuffer = None) -> None:
         if not self.is_running:
             return
 
@@ -440,9 +440,9 @@ class QemuSUT(SUT):
             self._stop = False
 
     def communicate(
-        self,
-        timeout: float = 3600,
-        iobuffer: IOBuffer = None) -> None:
+            self,
+            timeout: float = 3600,
+            iobuffer: IOBuffer = None) -> None:
         if not shutil.which(self._qemu_cmd):
             raise SUTError(f"Command not found: {self._qemu_cmd}")
 
@@ -520,10 +520,10 @@ class QemuSUT(SUT):
                     raise SUTError(err)
 
     def run_command(
-        self,
-        command: str,
-        timeout: float = 3600,
-        iobuffer: IOBuffer = None) -> dict:
+            self,
+            command: str,
+            timeout: float = 3600,
+            iobuffer: IOBuffer = None) -> dict:
         if not command:
             raise ValueError("command is empty")
 

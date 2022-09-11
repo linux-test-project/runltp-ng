@@ -151,15 +151,15 @@ class HostSUT(SUT):
         self._initialized = False
 
     def stop(
-        self,
-        timeout: float = 30,
-        iobuffer: IOBuffer = None) -> None:
+            self,
+            timeout: float = 30,
+            iobuffer: IOBuffer = None) -> None:
         self._inner_stop(signal.SIGHUP, timeout)
 
     def force_stop(
-        self,
-        timeout: float = 30,
-        iobuffer: IOBuffer = None) -> None:
+            self,
+            timeout: float = 30,
+            iobuffer: IOBuffer = None) -> None:
         self._inner_stop(signal.SIGKILL, timeout)
 
     def _read_stdout(self, size: int, iobuffer: IOBuffer = None) -> bytes:
@@ -196,8 +196,8 @@ class HostSUT(SUT):
             t_secs = max(timeout, 0)
 
             self._logger.info("Executing command (timeout=%d): %s",
-                t_secs,
-                command)
+                              t_secs,
+                              command)
 
             # pylint: disable=consider-using-with
             self._proc = subprocess.Popen(
