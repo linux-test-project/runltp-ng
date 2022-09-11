@@ -213,16 +213,11 @@ class SerialDispatcher(Dispatcher):
         if not self._ltpdir:
             raise ValueError("LTP directory doesn't exist")
 
-        if not self._tmpdir or not os.path.isdir(self._tmpdir):
-            raise ValueError("Temporary directory doesn't exist")
-
         if not self._sut:
             raise ValueError("SUT object is empty")
 
         # create temporary directory where saving suites files
-        tmp_suites = os.path.join(self._tmpdir, "runtest")
-        if not os.path.isdir(tmp_suites):
-            os.mkdir(tmp_suites)
+        self._tmpdir.mkdir("runtest")
 
     @property
     def is_running(self) -> bool:
@@ -267,6 +262,8 @@ class SerialDispatcher(Dispatcher):
 
             data = self._sut.fetch_file(target)
             data_str = data.decode(encoding="utf-8", errors="ignore")
+
+            self._tmpdir.mkfile(os.path.join("runtest", suite_name), data_str)
 
             ltp.events.fire(
                 "suite_download_completed",

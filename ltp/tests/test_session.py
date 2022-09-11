@@ -8,6 +8,7 @@ import threading
 import pytest
 import ltp.events
 from ltp.session import Session
+from ltp.tempfile import TempDir
 
 
 class EventsTracer:
@@ -187,7 +188,7 @@ class _TestSession:
                 suites,
                 command,
                 ltpdir,
-                str(tmpdir))
+                TempDir(root=tmpdir))
 
             assert tracer.next_event() == "session_started"
             assert tracer.next_event() == "sut_start"
@@ -228,7 +229,7 @@ class _TestSession:
                 ["dirsuite0", "dirsuite1"],
                 None,
                 ltpdir,
-                str(tmpdir),
+                TempDir(root=tmpdir),
                 skip_tests=["dir02"])
 
             report_d = None
@@ -270,7 +271,7 @@ class _TestSession:
             suites,
             None,
             ltpdir,
-            str(tmpdir))
+            TempDir(tmpdir))
 
         thread.join(timeout=10)
 

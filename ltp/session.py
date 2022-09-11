@@ -17,7 +17,7 @@ from ltp.sut import IOBuffer
 from ltp.qemu import QemuSUT
 from ltp.host import HostSUT
 from ltp.results import SuiteResults
-from ltp.tempfile import TempRotator
+from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
 from ltp.export import JSONExporter
 
@@ -74,14 +74,17 @@ class Session:
         self._colors_rule = colors_rule
 
     @staticmethod
-    def _setup_debug_log(tmpdir: str) -> None:
+    def _setup_debug_log(tmpdir: TempDir) -> None:
         """
         Save a log file with debugging information
         """
+        if not tmpdir.abspath:
+            return
+
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
 
-        debug_file = os.path.join(tmpdir, "debug.log")
+        debug_file = os.path.join(tmpdir.abspath, "debug.log")
         handler = logging.FileHandler(debug_file, encoding="utf8")
         handler.setLevel(logging.DEBUG)
 
@@ -114,8 +117,7 @@ class Session:
     def _start_sut(
             self,
             ltpdir: str,
-            tmpdir: str,
-            session_tmpdir: str,
+            tmpdir: TempDir,
             sut_config: dict) -> SUT:
         """
         Start a new SUT and return it initialized.
@@ -130,7 +132,7 @@ class Session:
         env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
         env["LTPROOT"] = ltpdir
-        env["TMPDIR"] = tmpdir
+        env["TMPDIR"] = tmpdir.root if tmpdir.root else "/tmp"
 
         if self._colors_rule == "ltp":
             env["LTP_COLORIZE_OUTPUT"] = "1"
@@ -143,7 +145,7 @@ class Session:
             config = {}
             config['env'] = env
             config['cwd'] = testcases
-            config['tmpdir'] = session_tmpdir
+            config['tmpdir'] = tmpdir.abspath
             config.update(sut_config)
 
             sut = QemuSUT(**config)
@@ -222,7 +224,7 @@ class Session:
             suites: list,
             command: str,
             ltpdir: str,
-            tmpdir: str,
+            tmpdir: TempDir,
             skip_tests: list = None) -> None:
         """
         Run some testing suites with a specific SUT configurations.
@@ -237,7 +239,7 @@ class Session:
         :param ltpdir: ltp install folder
         :type ltpdir: str
         :param tmpdir: temporary directory
-        :type tmpdir: str
+        :type tmpdir: TempDir
         :param skip_tests: list of tests to ignore
         :type skip_tests: list(str)
         """
@@ -248,20 +250,17 @@ class Session:
             self._sut = None
             self._dispatcher = None
 
-            session_tmpdir = TempRotator(tmpdir).rotate()
-
             self._logger.info(
                 "Running session using temporary folder: %s",
-                session_tmpdir)
+                tmpdir.abspath)
 
-            self._setup_debug_log(session_tmpdir)
-            ltp.events.fire("session_started", session_tmpdir)
+            self._setup_debug_log(tmpdir)
+            ltp.events.fire("session_started", tmpdir.abspath)
 
             try:
                 self._sut = self._start_sut(
                     ltpdir,
                     tmpdir,
-                    session_tmpdir,
                     sut_config)
 
                 self._logger.info("Created SUT: %s", self._sut.name)
@@ -283,7 +282,7 @@ class Session:
                 if suites:
                     self._dispatcher = SerialDispatcher(
                         ltpdir=ltpdir,
-                        tmpdir=session_tmpdir,
+                        tmpdir=tmpdir,
                         sut=self._sut,
                         suite_timeout=self._suite_timeout,
                         test_timeout=self._exec_timeout)
@@ -298,17 +297,17 @@ class Session:
                         for result in results:
                             self._print_results(result)
 
-                        # store JSON report in the temporary folder,
-                        # eventually store it in the report path
-                        results_report = os.path.join(
-                            session_tmpdir,
-                            "results.json")
-
-                        exporter = JSONExporter()
-                        exporter.save_file(results, results_report)
-
                         if report_path:
-                            shutil.copyfile(results_report, report_path)
+                            exporter = JSONExporter()
+                            exporter.save_file(results, report_path)
+
+                            if tmpdir.abspath:
+                                # store JSON report in the temporary folder
+                                results_report = os.path.join(
+                                    tmpdir.abspath,
+                                    "results.json")
+
+                                shutil.copyfile(report_path, results_report)
 
                 if not suites or (results and len(suites) == len(results)):
                     # if the number of suites is the same of the number

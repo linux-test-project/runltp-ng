@@ -12,36 +12,43 @@ import pathlib
 import tempfile
 
 
-class TempRotator:
+class TempDir:
     """
-    Temporary directory rotation class.
+    Temporary directory handler.
     """
     SYMLINK_NAME = "latest"
 
-    def __init__(self, root: str, max_rotate: int = 5) -> None:
+    def __init__(self, root: str = None, max_rotate: int = 5) -> None:
         """
-        :param root: root temporary path
-        :type root: str
-        :param max_rotate: maximum number of rotations
+        :param root: root directory (i.e. /tmp). If None, TempDir will handle
+            requests without adding any file or directory.
+        :type root: str | None
+        :param max_rotate: maximum number of temporary directories
         :type max_rotate: int
         """
-        if not os.path.isdir(root):
-            raise ValueError("root is empty")
+        if root and not os.path.isdir(root):
+            raise ValueError(f"root folder doesn't exist: {root}")
 
-        name = pwd.getpwuid(os.getuid()).pw_name
-        self._tmpbase = os.path.join(root, f"runltp-of-{name}")
+        self._root = root
         self._max_rotate = max(max_rotate, 0)
+        self._folder = self._rotate()
 
-    def rotate(self) -> str:
+    def _rotate(self) -> str:
         """
         Check for old folders and remove them, then create a new one and return
         its full path.
         """
-        os.makedirs(self._tmpbase, exist_ok=True)
+        if not self._root:
+            return ""
+
+        name = pwd.getpwuid(os.getuid()).pw_name
+        tmpbase = os.path.join(self._root, f"runltp-of-{name}")
+
+        os.makedirs(tmpbase, exist_ok=True)
 
         # delete the first max_rotate items
         sorted_paths = sorted(
-            pathlib.Path(self._tmpbase).iterdir(),
+            pathlib.Path(tmpbase).iterdir(),
             key=os.path.getmtime)
 
         # don't consider latest symlink
@@ -58,16 +65,61 @@ class TempRotator:
                 shutil.rmtree(str(path.resolve()))
 
         # create a new folder
-        folder = tempfile.mkdtemp(dir=self._tmpbase)
+        folder = tempfile.mkdtemp(dir=tmpbase)
 
         # create symlink to the latest temporary directory
-        latest = os.path.join(self._tmpbase, self.SYMLINK_NAME)
+        latest = os.path.join(tmpbase, self.SYMLINK_NAME)
         if os.path.islink(latest):
             os.remove(latest)
 
         os.symlink(
             folder,
-            os.path.join(self._tmpbase, self.SYMLINK_NAME),
+            os.path.join(tmpbase, self.SYMLINK_NAME),
             target_is_directory=True)
 
         return folder
+
+    @property
+    def root(self) -> str:
+        """
+        The root folder. For example, if temporary folder is
+        "/tmp/runltp-of-pippo/tmpf547ftxv" the method will return "/tmp".
+        If root folder has not been given during object creation, this
+        method returns an empty string.
+        """
+        return self._root if self._root else ""
+
+    @property
+    def abspath(self) -> str:
+        """
+        Absolute path of the temporary directory.
+        """
+        return self._folder
+
+    def mkdir(self, path: str) -> None:
+        """
+        Create a directory inside temporary directory.
+        :param path: path of the directory
+        :type path: str
+        :returns: folder path.
+        """
+        if not self._folder:
+            return
+
+        dpath = os.path.join(self._folder, path)
+        os.mkdir(dpath)
+
+    def mkfile(self, path: str, content: bytes) -> None:
+        """
+        Create a file inside temporary directory.
+        :param path: path of the file
+        :type path: str
+        :param content: file content
+        :type content: str
+        """
+        if not self._folder:
+            return
+
+        fpath = os.path.join(self._folder, path)
+        with open(fpath, "w+", encoding="utf-8") as mypath:
+            mypath.write(content)

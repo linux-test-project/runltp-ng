@@ -10,6 +10,7 @@ import re
 import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
+from ltp.tempfile import TempDir
 from ltp.session import Session
 from ltp.ui import SimpleUserInterface
 from ltp.ui import VerboseUserInterface
@@ -167,13 +168,15 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         ]
         skip_tests.extend(toskip)
 
+    tmpdir = TempDir(args.tmp_dir)
+
     session.run_single(
         args.sut,
         args.json_report,
         args.run_suite,
         args.run_cmd,
         args.ltp_dir,
-        args.tmp_dir,
+        tmpdir,
         skip_tests=skip_tests)
 
 

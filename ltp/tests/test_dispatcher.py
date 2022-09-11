@@ -14,6 +14,7 @@ from ltp.sut import SUTError
 from ltp.host import HostSUT
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
+from ltp.tempfile import TempDir
 
 
 class TestSerialDispatcher:
@@ -105,19 +106,13 @@ class TestSerialDispatcher:
         """
         with pytest.raises(ValueError):
             SerialDispatcher(
-                tmpdir=str(tmpdir),
+                tmpdir=TempDir(root=tmpdir),
                 ltpdir=None,
                 sut=sut)
 
         with pytest.raises(ValueError):
             SerialDispatcher(
-                ltpdir=str(tmpdir),
-                tmpdir="this_folder_doesnt_exist",
-                sut=sut)
-
-        with pytest.raises(ValueError):
-            SerialDispatcher(
-                tmpdir=str(tmpdir),
+                tmpdir=TempDir(root=tmpdir),
                 ltpdir=str(tmpdir),
                 sut=None)
 
@@ -127,7 +122,7 @@ class TestSerialDispatcher:
         Test exec_suites() method with bad arguments.
         """
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
@@ -149,7 +144,7 @@ class TestSerialDispatcher:
         Test exec_suites() method.
         """
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
@@ -187,7 +182,7 @@ class TestSerialDispatcher:
         Test stop method during exec_suites.
         """
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
@@ -219,7 +214,7 @@ class TestSerialDispatcher:
         Test exec_suites() method executing all different kind of tests.
         """
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
@@ -295,7 +290,7 @@ class TestSerialDispatcher:
         sleepsuite.write("sleep sleep 2")
 
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
             suite_timeout=0.5,
@@ -322,7 +317,7 @@ class TestSerialDispatcher:
         sleepsuite.write("sleep sleep 2")
 
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
             suite_timeout=15,
@@ -346,7 +341,7 @@ class TestSerialDispatcher:
         ltpdir = tmpdir / "ltp"
 
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
             suite_timeout=0.5,
@@ -409,7 +404,7 @@ class TestSerialDispatcher:
         crashsuite.write(f"kernel_panic echo Kernel panic")
 
         dispatcher = SerialDispatcher(
-            tmpdir=str(tmpdir),
+            tmpdir=TempDir(root=tmpdir),
             ltpdir=str(ltpdir),
             sut=sut,
             suite_timeout=10,
