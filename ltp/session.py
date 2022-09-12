@@ -276,6 +276,7 @@ class Session:
                     ltp.events.fire(
                         "run_cmd_stop",
                         command,
+                        ret["stdout"],
                         ret["returncode"])
 
                 results = None

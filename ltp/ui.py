@@ -182,9 +182,21 @@ class SimpleUserInterface(ConsoleUserInterface):
     def run_cmd_start(self, cmd: str) -> None:
         self._print(f"{cmd} ", end="", color=self.CYAN)
 
-    def run_cmd_stop(self, _: str, returncode: int) -> None:
-        msg = f"(exit_code {returncode})"
-        self._print(msg)
+    def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
+        self._print(f"(exit_code {returncode}", end="")
+
+        if "TFAIL" in stdout:
+            self._print(" TFAIL", color=self.RED, end="")
+        elif "TSKIP" in stdout:
+            self._print(" TSKIP", color=self.YELLOW, end="")
+        elif "TCONF" in stdout:
+            self._print(" TCONF", color=self.YELLOW, end="")
+        elif "TBROK" in stdout:
+            self._print(" TBROK", color=self.CYAN, end="")
+        elif "TPASS" in stdout:
+            self._print(" TPASS", color=self.GREEN, end="")
+
+        self._print(")")
 
 
 class VerboseUserInterface(ConsoleUserInterface):
@@ -325,6 +337,6 @@ class VerboseUserInterface(ConsoleUserInterface):
     def run_cmd_stdout(self, data: bytes) -> None:
         self._print(data.decode(encoding="utf-8", errors="ignore"))
 
-    def run_cmd_stop(self, _: str, returncode: int) -> None:
+    def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
         msg = f"\nExit code: {returncode}"
         self._print(msg)
