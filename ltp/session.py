@@ -297,17 +297,18 @@ class Session:
                         for result in results:
                             self._print_results(result)
 
+                        exporter = JSONExporter()
+
+                        if tmpdir.abspath:
+                            # store JSON report in the temporary folder
+                            results_report = os.path.join(
+                                tmpdir.abspath,
+                                "results.json")
+
+                            exporter.save_file(results, results_report)
+
                         if report_path:
-                            exporter = JSONExporter()
                             exporter.save_file(results, report_path)
-
-                            if tmpdir.abspath:
-                                # store JSON report in the temporary folder
-                                results_report = os.path.join(
-                                    tmpdir.abspath,
-                                    "results.json")
-
-                                shutil.copyfile(report_path, results_report)
 
                 if not suites or (results and len(suites) == len(results)):
                     # if the number of suites is the same of the number
