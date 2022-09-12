@@ -84,7 +84,7 @@ class TempDir:
     def root(self) -> str:
         """
         The root folder. For example, if temporary folder is
-        "/tmp/runltp-of-pippo/tmpf547ftxv" the method will return "/tmp".
+        "/tmp/runltp.pippo/tmpf547ftxv" the method will return "/tmp".
         If root folder has not been given during object creation, this
         method returns an empty string.
         """
