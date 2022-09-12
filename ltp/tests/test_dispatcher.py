@@ -7,7 +7,6 @@ import stat
 import threading
 import pytest
 from unittest.mock import MagicMock
-from unittest.mock import PropertyMock
 import ltp.events
 from ltp.sut import SUT
 from ltp.sut import SUTError
@@ -43,7 +42,7 @@ class TestSerialDispatcher:
         sut = HostSUT(cwd=testcases, env=env)
         # hack: force the SUT to be recognized as a different host
         # so we can reboot it
-        HostSUT.name = PropertyMock(return_value="testing_host")
+        sut.NAME = "testing_host"
         sut.communicate()
 
         return sut

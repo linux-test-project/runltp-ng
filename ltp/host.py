@@ -22,6 +22,10 @@ class HostSUT(SUT):
     SUT implementation using host's shell.
     """
 
+    # hack: this parameter is useful during unit testing, since we can
+    # override it without using PropertyMock that seems to be bugged
+    NAME = "host"
+
     def __init__(self, cwd: str = None, env: dict = None) -> None:
         super().__init__()
 
@@ -36,7 +40,7 @@ class HostSUT(SUT):
 
     @property
     def name(self) -> str:
-        return "host"
+        return self.NAME
 
     @property
     def is_running(self) -> bool:
