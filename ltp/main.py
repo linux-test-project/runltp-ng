@@ -71,9 +71,17 @@ def _get_qemu_config(params: list) -> dict:
             "Some parameters are not supported. "
             f"Please use the following: {', '.join(defaults)}")
 
-    if "smp" in config:
-        if not str.isdigit(config["smp"]):
-            raise argparse.ArgumentTypeError("smp must be and integer")
+    if "image" in config and not os.path.isfile(config["image"]):
+        raise argparse.ArgumentTypeError("Qemu image doesn't exist")
+
+    if "image_overlay" in config and os.path.isfile(config["image_overlay"]):
+        raise argparse.ArgumentTypeError("Qemu image overlay already exist")
+
+    if "password" in config and not config["password"]:
+        raise argparse.ArgumentTypeError("Qemu password is empty")
+
+    if "smp" in config and not str.isdigit(config["smp"]):
+        raise argparse.ArgumentTypeError("smp must be and integer")
 
     return config
 
@@ -140,6 +148,9 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
 
     if args.skip_file and not os.path.isfile(args.skip_file):
         parser.error(f"'{args.skip_file}' skip file doesn't exist")
+
+    if args.tmp_dir and not os.path.isdir(args.tmp_dir):
+        parser.error(f"'{args.tmp_dir}' temporary folder doesn't exist")
 
     if args.verbose:
         VerboseUserInterface(args.colors_rule)
