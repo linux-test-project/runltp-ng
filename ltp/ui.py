@@ -180,17 +180,11 @@ class SimpleUserInterface(ConsoleUserInterface):
         self._timed_out = False
 
     def run_cmd_start(self, cmd: str) -> None:
-        self._print(f"{cmd}: ", end="", color=self.CYAN)
+        self._print(f"{cmd} ", end="", color=self.CYAN)
 
     def run_cmd_stop(self, _: str, returncode: int) -> None:
-        msg = "ok"
-        col = self.GREEN
-
-        if returncode != 0:
-            msg = "error"
-            col = self.RED
-
-        self._print(msg, color=col)
+        msg = f"(exit_code {returncode})"
+        self._print(msg)
 
 
 class VerboseUserInterface(ConsoleUserInterface):
@@ -332,11 +326,5 @@ class VerboseUserInterface(ConsoleUserInterface):
         self._print(data.decode(encoding="utf-8", errors="ignore"))
 
     def run_cmd_stop(self, _: str, returncode: int) -> None:
-        msg = "Done"
-        col = self.GREEN
-
-        if returncode != 0:
-            msg = "Error"
-            col = self.RED
-
-        self._print(msg, color=col)
+        msg = f"\nExit code: {returncode}"
+        self._print(msg)
