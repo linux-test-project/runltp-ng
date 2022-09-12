@@ -17,6 +17,7 @@ class TempDir:
     Temporary directory handler.
     """
     SYMLINK_NAME = "latest"
+    FOLDER_PREFIX = "runltp."
 
     def __init__(self, root: str = None, max_rotate: int = 5) -> None:
         """
@@ -42,7 +43,7 @@ class TempDir:
             return ""
 
         name = pwd.getpwuid(os.getuid()).pw_name
-        tmpbase = os.path.join(self._root, f"runltp-of-{name}")
+        tmpbase = os.path.join(self._root, f"{self.FOLDER_PREFIX}{name}")
 
         os.makedirs(tmpbase, exist_ok=True)
 
