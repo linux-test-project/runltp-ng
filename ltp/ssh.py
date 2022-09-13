@@ -8,11 +8,13 @@
 import os
 import re
 import time
+import select
 import socket
 import string
 import secrets
 import logging
 import threading
+import subprocess
 from .sut import SUT
 from .sut import IOBuffer
 from .sut import SUTError
@@ -50,8 +52,8 @@ class SSHSUT(SUT):
         :type password: str
         :param key_file: file of the SSH keys
         :type key_file: str
-        :param ssh_opts: additional SSH options
-        :type ssh_opts: str
+        :param reset_cmd: reset command to execute during stop
+        :type reset_cmd: str
         :param env: environment variables
         :type env: dict
         :param cwd: current working directory
@@ -65,6 +67,7 @@ class SSHSUT(SUT):
         self._password = kwargs.get("password", None)
         key_file = kwargs.get("key_file", None)
         self._pkey = None
+        self._reset_cmd = kwargs.get("reset_cmd", None)
         self._env = kwargs.get("env", None)
         self._cwd = kwargs.get("cwd", None)
         self._ps1 = f"#{self._generate_string()}#"
@@ -306,6 +309,52 @@ class SSHSUT(SUT):
             except ValueError as err:
                 raise SUTError(err)
 
+    def _reset(self, timeout: float = 30, iobuffer: IOBuffer = None) -> None:
+        """
+        Run the reset command on host.
+        """
+        if not self._reset_cmd:
+            return
+
+        self._logger.info("Executing reset command: %s", repr(self._reset_cmd))
+
+        with subprocess.Popen(
+                self._reset_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                shell=True) as proc:
+            stdout = proc.stdout.fileno()
+            poller = select.epoll()
+            poller.register(
+                stdout,
+                select.POLLIN |
+                select.POLLPRI |
+                select.POLLHUP |
+                select.POLLERR)
+
+            t_secs = max(timeout, 0)
+            t_start = time.time()
+
+            while True:
+                events = poller.poll(0.2)
+                for fdesc, _ in events:
+                    if fdesc != stdout:
+                        break
+
+                    data = os.read(stdout, 1024)
+                    if iobuffer:
+                        iobuffer.write(data)
+                        iobuffer.flush()
+
+                if proc.poll() is not None:
+                    break
+
+                if time.time() - t_start >= t_secs:
+                    raise SUTTimeoutError(
+                        "Timeout during reset command execution")
+
+            self._logger.info("Reset command has been executed")
+
     def stop(self, timeout: float = 30, iobuffer: IOBuffer = None) -> None:
         self._stop = True
 
@@ -330,6 +379,8 @@ class SSHSUT(SUT):
                 self._logger.info("Closing connection")
                 self._client.close()
                 self._logger.info("Connection closed")
+
+            self._reset(timeout=timeout, iobuffer=iobuffer)
         except SSHException as err:
             raise SUTError(err)
         finally:
@@ -348,6 +399,8 @@ class SSHSUT(SUT):
                 self._logger.info("Closing connection")
                 self._client.close()
                 self._logger.info("Connection closed")
+
+            self._reset(timeout=timeout, iobuffer=iobuffer)
         except SSHException as err:
             raise SUTError(err)
         finally:

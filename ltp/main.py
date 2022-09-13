@@ -104,6 +104,7 @@ def _get_ssh_config(params: list) -> dict:
         'password',
         'key_file',
         'timeout',
+        'reset_command',
     )
 
     if not set(config).issubset(defaults):
@@ -171,6 +172,7 @@ def _sut_config(value: str) -> dict:
         msg += "\tpassword: user's password\n"
         msg += "\ttimeout: connection timeout in seconds (default: 10)\n"
         msg += "\tkey_file: private key location\n"
+        msg += "\treset_command: command to reset the remote SUT\n"
 
         return dict(help=msg)
 
