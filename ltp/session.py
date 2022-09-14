@@ -224,7 +224,7 @@ class Session:
             command: str,
             ltpdir: str,
             tmpdir: TempDir,
-            skip_tests: list = None) -> None:
+            skip_tests: list = None) -> int:
         """
         Run some testing suites with a specific SUT configurations.
         :param sut_config: system under test configuration.
@@ -241,9 +241,12 @@ class Session:
         :type tmpdir: TempDir
         :param skip_tests: list of tests to ignore
         :type skip_tests: list(str)
+        :returns: exit code for the session
         """
         if not sut_config:
             raise ValueError("sut configuration can't be empty")
+
+        exit_code = 0
 
         with self._lock_run:
             self._sut = None
@@ -321,7 +324,13 @@ class Session:
 
                 self._logger.error("Error: %s", str(err))
                 ltp.events.fire("session_error", str(err))
+
+                exit_code = 1
             except KeyboardInterrupt:
                 self._logger.info("Keyboard interrupt")
                 self._stop_all(timeout=60)
                 ltp.events.fire("session_stopped")
+
+                exit_code = 2
+
+        return exit_code

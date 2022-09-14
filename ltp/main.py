@@ -181,7 +181,7 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
 
     tmpdir = TempDir(args.tmp_dir)
 
-    session.run_single(
+    exit_code = session.run_single(
         args.sut,
         args.json_report,
         args.run_suite,
@@ -189,6 +189,8 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         args.ltp_dir,
         tmpdir,
         skip_tests=skip_tests)
+
+    exit(exit_code)
 
 
 def run() -> None:
