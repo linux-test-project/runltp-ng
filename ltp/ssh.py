@@ -384,7 +384,6 @@ class SSHSUT(SUT):
         except SSHException as err:
             raise SUTError(err)
         finally:
-            self._client = None
             self._shell = None
             self._stop = False
 
@@ -404,7 +403,6 @@ class SSHSUT(SUT):
         except SSHException as err:
             raise SUTError(err)
         finally:
-            self._client = None
             self._shell = None
             self._stop = False
 
