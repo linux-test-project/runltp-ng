@@ -89,6 +89,23 @@ class _TestSSHSUT(_TestSUT):
 
         assert buffer.data == b'ciao\n'
 
+    @pytest.mark.parametrize("enable", ["0", "1"])
+    def test_sudo(self, config, enable):
+        """
+        Test sudo parameter.
+        """
+        kwargs = dict(sudo=enable)
+        kwargs.update(config)
+
+        sut = SSHSUT(**kwargs)
+        sut.communicate()
+        ret = sut.run_command("echo -n $UID", timeout=1)
+
+        if enable == "1":
+            assert ret["stdout"] == "0"
+        else:
+            assert ret["stdout"] != "0"
+
 
 @pytest.mark.ssh
 @pytest.mark.skipif(TEST_SSH_USERNAME is None, reason="TEST_SSH_USERNAME is not defined")

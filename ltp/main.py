@@ -105,6 +105,7 @@ def _get_ssh_config(params: list) -> dict:
         'key_file',
         'timeout',
         'reset_command',
+        'sudo',
     )
 
     if not set(config).issubset(defaults):
@@ -137,6 +138,11 @@ def _get_ssh_config(params: list) -> dict:
     if "key_file" in config:
         if not os.path.isfile(config["key_file"]):
             raise argparse.ArgumentTypeError("key_file doesn't exist")
+
+    if "sudo" in config:
+        sudo = config["sudo"]
+        if not str.isdigit(sudo) and int(sudo) not in [0, 1]:
+            raise argparse.ArgumentTypeError("sudo must be 1 or 0")
 
     return config
 
@@ -173,6 +179,7 @@ def _sut_config(value: str) -> dict:
         msg += "\ttimeout: connection timeout in seconds (default: 10)\n"
         msg += "\tkey_file: private key location\n"
         msg += "\treset_command: command to reset the remote SUT\n"
+        msg += "\tsudo: use sudo to access to root shell (default: 0)\n"
 
         return dict(help=msg)
 

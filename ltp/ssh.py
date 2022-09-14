@@ -54,6 +54,8 @@ class SSHSUT(SUT):
         :type key_file: str
         :param reset_cmd: reset command to execute during stop
         :type reset_cmd: str
+        :param sudo: use sudo to access a root shell
+        :type sudo: int
         :param env: environment variables
         :type env: dict
         :param cwd: current working directory
@@ -68,6 +70,7 @@ class SSHSUT(SUT):
         key_file = kwargs.get("key_file", None)
         self._pkey = None
         self._reset_cmd = kwargs.get("reset_cmd", None)
+        self._sudo = int(kwargs.get("sudo", 0)) == 1
         self._env = kwargs.get("env", None)
         self._cwd = kwargs.get("cwd", None)
         self._ps1 = f"#{self._generate_string()}#"
@@ -276,6 +279,9 @@ class SSHSUT(SUT):
                 self._logger.info("Initialize shell")
 
                 self._shell = self._client.invoke_shell()
+
+                if self._sudo:
+                    self._shell.send("sudo /bin/sh\n".encode(encoding="utf-8"))
 
                 ret = self.run_command(
                     f"export PS1={self._ps1}",
