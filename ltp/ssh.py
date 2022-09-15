@@ -15,10 +15,11 @@ import secrets
 import logging
 import threading
 import subprocess
-from .sut import SUT
-from .sut import IOBuffer
-from .sut import SUTError
-from .sut import SUTTimeoutError
+import ltp.sut
+from ltp.sut import SUT
+from ltp.sut import IOBuffer
+from ltp.sut import SUTError
+from ltp.sut import SUTTimeoutError
 
 try:
     from paramiko import SSHClient
@@ -193,62 +194,19 @@ class SSHSUT(SUT):
         return reply_t
 
     def get_info(self) -> dict:
-        if not self.is_running:
-            raise SUTError("SSH connection is not present")
-
         self._logger.info("Reading SUT information")
 
-        # create suite results
-        def _run_cmd(cmd: str) -> str:
-            """
-            Run command, check for returncode and return command's stdout.
-            """
-            ret = self.run_command(cmd, timeout=3)
-            if ret["returncode"] != 0:
-                raise SUTError(f"Can't read information from SUT: {cmd}")
-
-            stdout = ret["stdout"].rstrip()
-
-            return stdout
-
-        distro = _run_cmd(". /etc/os-release; echo \"$ID\"")
-        distro_ver = _run_cmd(". /etc/os-release; echo \"$VERSION_ID\"")
-        kernel = _run_cmd("uname -s -r -v")
-        arch = _run_cmd("uname -m")
-
-        ret = {
-            "distro": distro,
-            "distro_ver": distro_ver,
-            "kernel": kernel,
-            "arch": arch,
-        }
+        ret = ltp.sut.collect_sysinfo(self)
+        ret.pop("kernel_tained")
 
         self._logger.debug(ret)
 
         return ret
 
     def get_tained_info(self) -> set:
-        if not self.is_running:
-            raise SUTError("SSH connection is not present")
-
         self._logger.info("Checking for tained kernel")
 
-        ret = self.run_command(
-            "cat /proc/sys/kernel/tainted",
-            timeout=1)
-
-        if ret["returncode"]:
-            raise SUTError("Can't check for tained kernel")
-
-        tained_num = len(self.TAINED_MSG)
-        code = int(ret["stdout"].rstrip())
-        bits = format(code, f"0{tained_num}b")[::-1]
-
-        messages = []
-        for i in range(0, tained_num):
-            if bits[i] == "1":
-                msg = self.TAINED_MSG[i]
-                messages.append(msg)
+        code, messages = ltp.sut.collect_sysinfo(self)["kernel_tained"]
 
         self._logger.debug("code=%d, messages=%s", code, messages)
 
