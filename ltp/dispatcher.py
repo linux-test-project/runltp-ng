@@ -379,10 +379,7 @@ class SerialDispatcher(Dispatcher):
     def _run_suite(
             self,
             suite: Suite,
-            distro: str,
-            distro_ver: str,
-            kernel: str,
-            arch: str,
+            info: dict,
             skip_tests: list = None) -> SuiteResults:
         """
         Execute a specific testing suite and return the results.
@@ -422,10 +419,13 @@ class SerialDispatcher(Dispatcher):
         suite_results = SuiteResults(
             suite=suite,
             tests=tests_results,
-            distro=distro,
-            distro_ver=distro_ver,
-            kernel=kernel,
-            arch=arch)
+            distro=info["distro"],
+            distro_ver=info["distro_ver"],
+            kernel=info["kernel"],
+            arch=info["arch"],
+            cpu=info["cpu"],
+            swap=info["swap"],
+            ram=info["ram"])
 
         if suite_results:
             ltp.events.fire("suite_completed", suite_results)
@@ -446,13 +446,7 @@ class SerialDispatcher(Dispatcher):
 
             results = []
             for suite in suites_obj:
-                result = self._run_suite(
-                    suite,
-                    info["distro"],
-                    info["distro_ver"],
-                    info["kernel"],
-                    info["arch"],
-                    skip_tests=skip_tests)
+                result = self._run_suite(suite, info, skip_tests=skip_tests)
 
                 if result:
                     results.append(result)

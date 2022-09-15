@@ -134,7 +134,10 @@ class SimpleUserInterface(ConsoleUserInterface):
         message += f"Broken Tests: {results.broken}\n"
         message += f"Warnings: {results.warnings}\n"
         message += f"Kernel Version: {results.kernel}\n"
+        message += f"CPU: {results.cpu}\n"
         message += f"Machine Architecture: {results.arch}\n"
+        message += f"RAM: {results.ram}\n"
+        message += f"Swap memory: {results.swap}\n"
         message += f"Distro: {results.distro}\n"
         message += f"Distro Version: {results.distro_ver}\n"
 
@@ -299,7 +302,10 @@ class VerboseUserInterface(ConsoleUserInterface):
         message += f"Broken Tests: {results.broken}\n"
         message += f"Warnings: {results.warnings}\n"
         message += f"Kernel Version: {results.kernel}\n"
+        message += f"CPU: {results.cpu}\n"
         message += f"Machine Architecture: {results.arch}\n"
+        message += f"RAM: {results.ram}\n"
+        message += f"Swap memory: {results.swap}\n"
         message += f"Distro: {results.distro}\n"
         message += f"Distro Version: {results.distro_ver}\n"
 

@@ -8,7 +8,7 @@ import threading
 import pytest
 from unittest.mock import MagicMock
 import ltp.events
-from ltp.sut import SUT
+import ltp.sut
 from ltp.sut import SUTError
 from ltp.host import HostSUT
 from ltp.dispatcher import SerialDispatcher
@@ -372,7 +372,7 @@ class TestSerialDispatcher:
         try:
             for i in range(0, 18):
                 bit = math.pow(2, i)
-                msg = SUT.TAINED_MSG[i]
+                msg = ltp.sut.TAINED_MSG[i]
 
                 sut.get_tained_info = MagicMock(return_value=(0, [""]))
 

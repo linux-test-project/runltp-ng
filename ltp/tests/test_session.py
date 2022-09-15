@@ -236,7 +236,7 @@ class _TestSession:
             with open(report_path, 'r') as report_f:
                 report_d = json.loads(report_f.read())
 
-            tests = [item['name'] for item in report_d["suites"][0]["tests"]]
+            tests = [item['test_fqn'] for item in report_d["results"]]
             assert "dir02" not in tests
         finally:
             session.stop()

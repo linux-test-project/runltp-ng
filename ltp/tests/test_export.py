@@ -40,7 +40,6 @@ class TestJSONExporter:
             Test("ls2", "ls", "--error")
         ]
         suite0 = Suite("ls_suite0", tests)
-        suite1 = Suite("ls_suite1", tests)
 
         # create results objects
         tests_res = [
@@ -86,14 +85,10 @@ class TestJSONExporter:
                 distro="openSUSE-Leap",
                 distro_ver="15.3",
                 kernel="5.17",
-                arch="x86_64"),
-            SuiteResults(
-                suite=suite1,
-                tests=tests_res,
-                distro="openSUSE-Leap",
-                distro_ver="15.3",
-                kernel="5.17",
-                arch="x86_64"),
+                arch="x86_64",
+                cpu="x86_64",
+                swap="10 kB",
+                ram="1000 kB"),
         ]
 
         output = tmpdir / "output.json"
@@ -105,26 +100,9 @@ class TestJSONExporter:
         with open(str(output), 'r') as json_data:
             data = json.load(json_data)
 
-        # first suite
-        assert len(data["suites"]) == 2
-        assert data["suites"][0]["name"] == "ls_suite0"
-        assert data["suites"][0]["sut"] == {
-            "distro": "openSUSE-Leap",
-            "distro_ver": "15.3",
-            "kernel": "5.17",
-            "arch": "x86_64"
-        }
-        assert data["suites"][0]["results"] == {
-            "exec_time": 3,
-            "passed": 2,
-            "failed": 1,
-            "broken": 0,
-            "skipped": 0,
-            "warnings": 0,
-        }
-        assert data["suites"][0]["tests"] == [
-            {
-                "name": "ls0",
+        assert len(data["results"]) == 3
+        assert data["results"][0] == {
+            "test": {
                 "command": "ls",
                 "arguments": "",
                 "failed": 0,
@@ -132,12 +110,18 @@ class TestJSONExporter:
                 "broken": 0,
                 "skipped": 0,
                 "warnings": 0,
-                "exec_time": 1,
-                "returncode": 0,
-                "stdout": "folder\nfile.txt",
+                "duration": 1,
+                "result": "pass",
+                "log": "folder\nfile.txt",
+                "retval": [
+                    "0"
+                ],
             },
-            {
-                "name": "ls1",
+            "status": "pass",
+            "test_fqn": "ls0",
+        }
+        assert data["results"][1] == {
+            "test": {
                 "command": "ls",
                 "arguments": "-l",
                 "failed": 0,
@@ -145,12 +129,18 @@ class TestJSONExporter:
                 "broken": 0,
                 "skipped": 0,
                 "warnings": 0,
-                "exec_time": 1,
-                "returncode": 0,
-                "stdout": "folder\nfile.txt",
+                "duration": 1,
+                "result": "pass",
+                "log": "folder\nfile.txt",
+                "retval": [
+                    "0"
+                ],
             },
-            {
-                "name": "ls2",
+            "status": "pass",
+            "test_fqn": "ls1",
+        }
+        assert data["results"][2] == {
+            "test": {
                 "command": "ls",
                 "arguments": "--error",
                 "failed": 1,
@@ -158,66 +148,31 @@ class TestJSONExporter:
                 "broken": 0,
                 "skipped": 0,
                 "warnings": 0,
-                "exec_time": 1,
-                "returncode": 1,
-                "stdout": "",
+                "duration": 1,
+                "result": "fail",
+                "log": "",
+                "retval": [
+                    "1"
+                ],
             },
-        ]
+            "status": "fail",
+            "test_fqn": "ls2",
+        }
 
-        # second suite
-        assert data["suites"][1]["name"] == "ls_suite1"
-        assert data["suites"][1]["sut"] == {
-            "distro": "openSUSE-Leap",
-            "distro_ver": "15.3",
+        assert data["environment"] == {
+            "distribution_version": "15.3",
+            "distribution": "openSUSE-Leap",
             "kernel": "5.17",
-            "arch": "x86_64"
+            "arch": "x86_64",
+            "cpu": "x86_64",
+            "swap": "10 kB",
+            "RAM": "1000 kB",
         }
-        assert data["suites"][1]["results"] == {
-            "exec_time": 3,
+        assert data["stats"] == {
+            "runtime": 3,
             "passed": 2,
             "failed": 1,
             "broken": 0,
             "skipped": 0,
             "warnings": 0,
         }
-        assert data["suites"][1]["tests"] == [
-            {
-                "name": "ls0",
-                "command": "ls",
-                "arguments": "",
-                "failed": 0,
-                "passed": 1,
-                "broken": 0,
-                "skipped": 0,
-                "warnings": 0,
-                "exec_time": 1,
-                "returncode": 0,
-                "stdout": "folder\nfile.txt",
-            },
-            {
-                "name": "ls1",
-                "command": "ls",
-                "arguments": "-l",
-                "failed": 0,
-                "passed": 1,
-                "broken": 0,
-                "skipped": 0,
-                "warnings": 0,
-                "exec_time": 1,
-                "returncode": 0,
-                "stdout": "folder\nfile.txt",
-            },
-            {
-                "name": "ls2",
-                "command": "ls",
-                "arguments": "--error",
-                "failed": 1,
-                "passed": 0,
-                "broken": 0,
-                "skipped": 0,
-                "warnings": 0,
-                "exec_time": 1,
-                "returncode": 1,
-                "stdout": "",
-            },
-        ]

@@ -177,6 +177,9 @@ class SuiteResults(Results):
         self._distro_ver = kwargs.get("distro_ver", None)
         self._kernel = kwargs.get("kernel", None)
         self._arch = kwargs.get("arch", None)
+        self._cpu = kwargs.get("cpu", None)
+        self._swap = kwargs.get("swap", None)
+        self._ram = kwargs.get("ram", None)
 
         if not self._suite:
             raise ValueError("Empty suite object")
@@ -234,6 +237,27 @@ class SuiteResults(Results):
         Operating system architecture.
         """
         return self._arch
+
+    @property
+    def cpu(self) -> str:
+        """
+        Current CPU type.
+        """
+        return self._cpu
+
+    @property
+    def swap(self) -> str:
+        """
+        Current swap memory occupation.
+        """
+        return self._swap
+
+    @property
+    def ram(self) -> str:
+        """
+        Current RAM occupation.
+        """
+        return self._ram
 
     @property
     def exec_time(self) -> float:
