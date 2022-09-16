@@ -1,6 +1,6 @@
 # Copyright (c) 2022 Andrea Cervesato <andrea.cervesato@suse.com>
 
-name: "Test python versions"
+name: "Lint packages"
 on: [push, pull_request]
 
 jobs:
