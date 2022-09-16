@@ -7,6 +7,7 @@
 """
 import os
 import re
+import sys
 import argparse
 from argparse import ArgumentParser
 from argparse import Namespace
@@ -190,7 +191,7 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         tmpdir,
         skip_tests=skip_tests)
 
-    exit(exit_code)
+    sys.exit(exit_code)
 
 
 def run() -> None:
