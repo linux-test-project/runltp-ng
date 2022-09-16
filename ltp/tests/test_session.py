@@ -305,6 +305,7 @@ TEST_QEMU_IMAGE = os.environ.get("TEST_QEMU_IMAGE", None)
 TEST_QEMU_PASSWORD = os.environ.get("TEST_QEMU_PASSWORD", None)
 
 
+@pytest.mark.qemu
 @pytest.mark.skipif(TEST_QEMU_IMAGE is None, reason="TEST_QEMU_IMAGE is not defined")
 @pytest.mark.skipif(TEST_QEMU_PASSWORD is None, reason="TEST_QEMU_IMAGE is not defined")
 class TestQemuSession(_TestSession):
