@@ -66,9 +66,9 @@ class EventsTracer:
         assert command == self._command
         self._messages.append("run_cmd_start")
 
-    def _run_cmd_stop(self, command, retcode) -> None:
+    def _run_cmd_stop(self, command, stdout, returncode) -> None:
         assert command == self._command
-        assert retcode == 0
+        assert returncode == 0
         self._messages.append("run_cmd_stop")
 
 
