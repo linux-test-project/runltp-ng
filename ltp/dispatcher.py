@@ -380,7 +380,7 @@ class SerialDispatcher(Dispatcher):
             self,
             suite: Suite,
             info: dict,
-            skip_tests: list = None) -> SuiteResults:
+            skip_tests: str = None) -> SuiteResults:
         """
         Execute a specific testing suite and return the results.
         """
@@ -397,7 +397,7 @@ class SerialDispatcher(Dispatcher):
             if self._stop:
                 break
 
-            if skip_tests and test.name in skip_tests:
+            if skip_tests and re.search(skip_tests, test.name):
                 self._logger.info("Ignoring test: %s", test.name)
                 continue
 
@@ -435,7 +435,7 @@ class SerialDispatcher(Dispatcher):
 
         return suite_results
 
-    def exec_suites(self, suites: list, skip_tests: list = None) -> list:
+    def exec_suites(self, suites: list, skip_tests: str = None) -> list:
         if not suites:
             raise ValueError("Empty suites list")
 

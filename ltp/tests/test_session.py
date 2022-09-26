@@ -226,18 +226,22 @@ class _TestSession:
             session.run_single(
                 sut_config,
                 report_path,
-                ["dirsuite0", "dirsuite1"],
+                ["dirsuite0", "dirsuite1", "dirsuite2", "dirsuite3", "dirsuite4"],
                 None,
                 ltpdir,
                 TempDir(root=tmpdir),
-                skip_tests=["dir02"])
+                skip_tests="dir0[12]|dir0(1|3)|dir05")
 
             report_d = None
             with open(report_path, 'r') as report_f:
                 report_d = json.loads(report_f.read())
 
             tests = [item['test_fqn'] for item in report_d["results"]]
+            assert "dir01" not in tests
             assert "dir02" not in tests
+            assert "dir03" not in tests
+            assert "dir04" in tests
+            assert "dir05" not in tests
         finally:
             session.stop()
 

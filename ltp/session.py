@@ -224,7 +224,7 @@ class Session:
             command: str,
             ltpdir: str,
             tmpdir: TempDir,
-            skip_tests: list = None) -> int:
+            skip_tests: str = None) -> int:
         """
         Run some testing suites with a specific SUT configurations.
         :param sut_config: system under test configuration.
@@ -239,8 +239,8 @@ class Session:
         :type ltpdir: str
         :param tmpdir: temporary directory
         :type tmpdir: TempDir
-        :param skip_tests: list of tests to ignore
-        :type skip_tests: list(str)
+        :param skip_tests: tests to ignore in a regex form
+        :type skip_tests: str
         :returns: exit code for the session
         """
         if not sut_config:

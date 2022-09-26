@@ -153,20 +153,8 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
     if args.tmp_dir and not os.path.isdir(args.tmp_dir):
         parser.error(f"'{args.tmp_dir}' temporary folder doesn't exist")
 
-    if args.verbose:
-        VerboseUserInterface(args.colors_rule)
-    else:
-        SimpleUserInterface(args.colors_rule)
-
-    session = Session(
-        suite_timeout=args.suite_timeout,
-        exec_timeout=args.exec_timeout,
-        colors_rule=args.colors_rule)
-
-    # create list of tests to skip
-    skip_tests = []
-    if args.skip_tests:
-        skip_tests.extend(args.skip_tests)
+    # create regex of tests to skip
+    skip_tests = args.skip_tests
 
     if args.skip_file:
         lines = None
@@ -178,7 +166,23 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
             for line in lines
             if not re.search(r'^\s+#.*', line)
         ]
-        skip_tests.extend(toskip)
+        skip_tests = '|'.join(toskip) + '|' + skip_tests
+
+    if skip_tests:
+        try:
+            re.compile(skip_tests)
+        except re.error:
+            parser.error(f"'{skip_tests}' is not a valid regular expression")
+
+    if args.verbose:
+        VerboseUserInterface(args.colors_rule)
+    else:
+        SimpleUserInterface(args.colors_rule)
+
+    session = Session(
+        suite_timeout=args.suite_timeout,
+        exec_timeout=args.exec_timeout,
+        colors_rule=args.colors_rule)
 
     tmpdir = TempDir(args.tmp_dir)
 
@@ -225,7 +229,7 @@ def run() -> None:
     parser.add_argument(
         "--skip-tests",
         "-i",
-        nargs="*",
+        type=str,
         help="Skip specific tests")
     parser.add_argument(
         "--skip-file",
