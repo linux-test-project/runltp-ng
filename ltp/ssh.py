@@ -23,7 +23,9 @@ from ltp.sut import SUTTimeoutError
 
 try:
     from paramiko import SSHClient
+    from paramiko import RejectPolicy
     from paramiko import AutoAddPolicy
+    from paramiko import MissingHostKeyPolicy
     from paramiko import SSHException
     from paramiko import RSAKey
     from scp import SCPClient
@@ -39,6 +41,7 @@ class SSHSUT(SUT):
     A SUT that is using SSH protocol con communicate and transfer data.
     """
 
+    # pylint: disable=too-many-statements
     def __init__(self, **kwargs) -> None:
         """
         :param tmpdir: temporary directory
@@ -53,9 +56,15 @@ class SSHSUT(SUT):
         :type password: str
         :param key_file: file of the SSH keys
         :type key_file: str
+        :param known_hosts: known_hosts file location.
+            Default: ~/.ssh/known_hosts
+        :type known_hosts: str
+        :param hostkey_policy: host key policy (auto, missing, reject).
+            Default: auto
+        :type hostkey_policy: str
         :param reset_cmd: reset command to execute during stop
         :type reset_cmd: str
-        :param sudo: use sudo to access a root shell
+        :param sudo: if 1, use sudo to access a root shell
         :type sudo: int
         :param env: environment variables
         :type env: dict
@@ -69,6 +78,8 @@ class SSHSUT(SUT):
         self._user = kwargs.get("user", "root")
         self._password = kwargs.get("password", None)
         key_file = kwargs.get("key_file", None)
+        hostkey_policy = kwargs.get("hostkey_policy", "auto")
+        known_hosts = kwargs.get("known_hosts", None)
         self._pkey = None
         self._reset_cmd = kwargs.get("reset_cmd", None)
         self._sudo = int(kwargs.get("sudo", 0)) == 1
@@ -83,10 +94,31 @@ class SSHSUT(SUT):
         self._client = None
         self._no_paramiko = False
 
+        if hostkey_policy not in ["auto", "missing", "reject"]:
+            raise ValueError(f"'{hostkey_policy}' policy is not available")
+
         try:
             self._client = SSHClient()
-            self._client.load_system_host_keys()
-            self._client.set_missing_host_key_policy(AutoAddPolicy())
+
+            # if /dev/null is given, we emulate -o UserKnownHostsFile=/dev/null
+            # avoiding know_hosts file usage
+            self._logger.info("Loading system host keys: %s", known_hosts)
+            if known_hosts != "/dev/null":
+                self._client.load_system_host_keys(known_hosts)
+
+            if hostkey_policy == "auto":
+                self._logger.info("Using auto add policy for host keys")
+                self._client.set_missing_host_key_policy(
+                    AutoAddPolicy())
+            elif hostkey_policy == "missing":
+                self._logger.info("Using missing policy for host keys")
+                self._client.set_missing_host_key_policy(
+                    MissingHostKeyPolicy())
+            else:
+                self._logger.info("Using reject policy for host keys")
+                # for security reasons, we choose "reject" as default behavior
+                self._client.set_missing_host_key_policy(
+                    RejectPolicy())
         except NameError:
             self._logger.info("Paramiko is not installed")
             self._no_paramiko = True

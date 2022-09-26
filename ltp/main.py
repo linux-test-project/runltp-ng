@@ -87,6 +87,7 @@ def _get_qemu_config(params: list) -> dict:
     return config
 
 
+# pylint: disable=too-many-branches
 def _get_ssh_config(params: list) -> dict:
     """
     Return the SSH SUT configuration.
@@ -103,6 +104,8 @@ def _get_ssh_config(params: list) -> dict:
         'user',
         'password',
         'key_file',
+        'hostkey_policy',
+        'known_hosts',
         'timeout',
         'reset_command',
         'sudo',
@@ -138,6 +141,17 @@ def _get_ssh_config(params: list) -> dict:
     if "key_file" in config:
         if not os.path.isfile(config["key_file"]):
             raise argparse.ArgumentTypeError("key_file doesn't exist")
+
+    if "hostkey_policy" in config:
+        policy = config["hostkey_policy"]
+        if policy not in ["auto", "missing", "reject"]:
+            raise argparse.ArgumentTypeError(
+                f"'{policy}' host key policy is not supported")
+
+    if "known_hosts" in config:
+        known_hosts = config["known_hosts"]
+        if not os.path.isfile(known_hosts) and known_hosts != "/dev/null":
+            raise argparse.ArgumentTypeError("known_hosts file doesn't exist")
 
     if "sudo" in config:
         sudo = config["sudo"]
@@ -178,6 +192,8 @@ def _sut_config(value: str) -> dict:
         msg += "\tpassword: user's password\n"
         msg += "\ttimeout: connection timeout in seconds (default: 10)\n"
         msg += "\tkey_file: private key location\n"
+        msg += "\thostkey_policy: host key policy - auto | missing | reject. (default: auto)\n"
+        msg += "\tknown_hosts: known_hosts file (default: ~/.ssh/known_hosts)\n"
         msg += "\treset_command: command to reset the remote SUT\n"
         msg += "\tsudo: use sudo to access to root shell (default: 0)\n"
 
