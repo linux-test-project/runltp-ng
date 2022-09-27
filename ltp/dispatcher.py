@@ -96,10 +96,14 @@ class Dispatcher:
                 # if no results are given, this is probably an
                 # old test implementation that fails when return
                 # code is != 0
-                if retcode != 0:
-                    failed = 1
-                else:
+                if retcode == 0:
                     passed = 1
+                elif retcode == 4:
+                    warnings = 1
+                elif retcode == 32:
+                    skipped = 1
+                else:
+                    failed = 1
 
         if timed_out:
             broken = 1

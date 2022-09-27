@@ -60,14 +60,14 @@ class JSONExporter(Exporter):
         for result in results:
             for test_report in result.tests_results:
                 status = ""
-                if test_report.passed or \
-                        test_report.skipped:
+                if test_report.passed:
                     status = "pass"
-
-                if test_report.broken or \
-                        test_report.failed or \
-                        test_report.warnings:
+                elif test_report.broken or test_report.failed:
                     status = "fail"
+                elif test_report.return_code == 4 and test_report.warnings:
+                    status = "warn"
+                elif test_report.return_code == 32 and test_report.skipped:
+                    status = "skip"
 
                 data_test = {
                     "test_fqn": test_report.test.name,
