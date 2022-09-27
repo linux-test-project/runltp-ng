@@ -2,6 +2,7 @@
 Unittest for temporary module.
 """
 import os
+import time
 import pytest
 from ltp.tempfile import TempDir
 
@@ -34,6 +35,12 @@ class TestTempDir:
             assert tempdir.abspath is not None
             assert tempdir.abspath == os.readlink(
                 os.path.join(tempdir.abspath, "..", tempdir.SYMLINK_NAME))
+
+        os.sync()
+
+        # when system is pretty slow we might need to wait for FS sync
+        # before checking available folders
+        time.sleep(1)
 
         total = 0
         for _, dirs, _ in os.walk(os.path.join(tempdir.abspath, "..")):
