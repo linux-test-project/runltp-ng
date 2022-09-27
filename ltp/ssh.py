@@ -171,26 +171,39 @@ class SSHSUT(SUT):
         t_secs = max(timeout, 0)
         t_start = time.time()
 
+        # register stdout poller
+        stdout_fd = self._shell.fileno()
+        poller = select.epoll()
+        poller.register(
+            stdout_fd,
+            select.POLLIN |
+            select.POLLPRI |
+            select.POLLHUP |
+            select.POLLERR)
+
         while not stdout.endswith(self._ps1):
             if self._shell is None:
                 # this can happen during stop()
                 break
 
-            if self._shell.recv_ready():
-                data = self._shell.recv(512)
-                sdata = data.decode(encoding="utf-8", errors="ignore")
-                stdout += sdata.replace("\r", "")
+            events = poller.poll(1)
+            for fdesc, _ in events:
+                if fdesc != stdout_fd:
+                    break
 
-                # write on stdout buffers
-                if iobuffer:
-                    iobuffer.write(data)
-                    iobuffer.flush()
+                if self._shell is not None and self._shell.recv_ready():
+                    data = self._shell.recv(512)
+                    sdata = data.decode(encoding="utf-8", errors="ignore")
+                    stdout += sdata.replace("\r", "")
 
-                if time.time() - t_start >= t_secs:
-                    raise SUTTimeoutError(
-                        f"Timed out waiting for {repr(self._ps1)}")
+                    # write on stdout buffers
+                    if iobuffer:
+                        iobuffer.write(data)
+                        iobuffer.flush()
 
-            time.sleep(0.01)
+                    if time.time() - t_start >= t_secs:
+                        raise SUTTimeoutError(
+                            f"Timed out waiting for {repr(self._ps1)}")
 
         # we don't want echo message
         if stdout and stdout.startswith(command):

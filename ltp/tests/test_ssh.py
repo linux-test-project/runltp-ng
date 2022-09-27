@@ -128,7 +128,7 @@ class TestSSHSUTPassword(_TestSSHSUT):
 @pytest.mark.ssh
 @pytest.mark.skipif(TEST_SSH_USERNAME is None, reason="TEST_SSH_USERNAME is not defined")
 @pytest.mark.skipif(TEST_SSH_KEY_FILE is None, reason="TEST_SSH_KEY_FILE is not defined")
-class TestSSHSUTKeyfile(_TestSUT):
+class TestSSHSUTKeyfile(_TestSSHSUT):
     """
     Test SSHSUT implementation using username/password.
     """
