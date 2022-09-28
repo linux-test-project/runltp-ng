@@ -283,8 +283,15 @@ class SSHSUT(SUT):
 
                 self._shell = self._client.invoke_shell()
 
+                # hack: wait for prompt. We don't know what the welcome
+                # message will be, so we blindly wait for an amount of time
+                # before proceeding with commands
+                time.sleep(1)
+
                 if self._sudo:
+                    self._logger.info("Login with root")
                     self._shell.send("sudo /bin/sh\n".encode(encoding="utf-8"))
+                    time.sleep(0.2)
 
                 ret = self.run_command(
                     f"export PS1={self._ps1}",
