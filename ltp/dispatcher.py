@@ -129,6 +129,14 @@ class Dispatcher:
         """
         raise NotImplementedError()
 
+    @property
+    def last_results(self) -> list:
+        """
+        Last testing suites results.
+        :returns: list(SuiteResults)
+        """
+        raise NotImplementedError()
+
     def stop(self, timeout: float = 30) -> None:
         """
         Stop the current execution.
@@ -213,6 +221,7 @@ class SerialDispatcher(Dispatcher):
         self._test_timeout = max(kwargs.get("test_timeout", 3600.0), 0.0)
         self._exec_lock = threading.Lock()
         self._stop = False
+        self._last_results = None
 
         if not self._ltpdir:
             raise ValueError("LTP directory doesn't exist")
@@ -228,6 +237,10 @@ class SerialDispatcher(Dispatcher):
         # some pylint versions don't recognize threading.Lock::locked
         # pylint: disable=no-member
         return self._exec_lock.locked()
+
+    @property
+    def last_results(self) -> list:
+        return self._last_results
 
     def stop(self, timeout: float = 30) -> None:
         if not self.is_running:
@@ -384,7 +397,7 @@ class SerialDispatcher(Dispatcher):
             self,
             suite: Suite,
             info: dict,
-            skip_tests: str = None) -> SuiteResults:
+            skip_tests: str = None) -> None:
         """
         Execute a specific testing suite and return the results.
         """
@@ -396,29 +409,48 @@ class SerialDispatcher(Dispatcher):
 
         start_t = time.time()
         tests_results = []
+        timed_out = False
+        interrupt = False
 
         for test in suite.tests:
             if self._stop:
                 break
 
+            if timed_out or interrupt:
+                # after suite timeout treat all tests left as skipped tests
+                result = TestResults(
+                    test=test,
+                    failed=0,
+                    passed=0,
+                    broken=0,
+                    skipped=1,
+                    warnings=0,
+                    exec_time=0.0,
+                    retcode=32,
+                    stdout="",
+                )
+                tests_results.append(result)
+                continue
+
             if skip_tests and re.search(skip_tests, test.name):
                 self._logger.info("Ignoring test: %s", test.name)
                 continue
 
-            results = self._run_test(test)
-            if not results:
-                break
-
-            tests_results.append(results)
+            try:
+                results = self._run_test(test)
+                if results:
+                    tests_results.append(results)
+            except KeyboardInterrupt:
+                # catch SIGINT during test execution and postpone it after
+                # results have been collected, so we don't loose tests reports
+                interrupt = True
 
             if time.time() - start_t >= self._suite_timeout:
-                raise SuiteTimeoutError(
-                    f"{suite.name} suite timed out "
-                    f"(timeout={self._suite_timeout})")
+                timed_out = True
 
         if not tests_results:
             # no tests execution means no suite
-            return None
+            return
 
         suite_results = SuiteResults(
             suite=suite,
@@ -431,28 +463,40 @@ class SerialDispatcher(Dispatcher):
             swap=info["swap"],
             ram=info["ram"])
 
+        self._last_results.append(suite_results)
+
         if suite_results:
             ltp.events.fire("suite_completed", suite_results)
 
         self._logger.debug(suite_results)
         self._logger.info("Suite completed")
 
-        return suite_results
+        if interrupt:
+            raise KeyboardInterrupt()
+
+        if timed_out:
+            self._logger.info("Testing suite timed out: %s", suite.name)
+
+            ltp.events.fire(
+                "suite_timeout",
+                suite,
+                self._suite_timeout)
+
+            raise SuiteTimeoutError(
+                f"{suite.name} suite timed out "
+                f"(timeout={self._suite_timeout})")
 
     def exec_suites(self, suites: list, skip_tests: str = None) -> list:
         if not suites:
             raise ValueError("Empty suites list")
 
         with self._exec_lock:
-            suites_obj = self._download_suites(suites)
+            self._last_results = []
 
+            suites_obj = self._download_suites(suites)
             info = self._sut.get_info()
 
-            results = []
             for suite in suites_obj:
-                result = self._run_suite(suite, info, skip_tests=skip_tests)
+                self._run_suite(suite, info, skip_tests=skip_tests)
 
-                if result:
-                    results.append(result)
-
-            return results
+            return self._last_results

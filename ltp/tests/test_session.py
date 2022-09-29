@@ -35,6 +35,7 @@ class EventsTracer:
         ltp.events.register("sut_stop", self._sut_stop)
         ltp.events.register("run_cmd_start", self._run_cmd_start)
         ltp.events.register("run_cmd_stop", self._run_cmd_stop)
+        ltp.events.register("suite_timeout", self._suite_timeout)
 
     def next_event(self) -> str:
         self._counter += 1
@@ -70,6 +71,9 @@ class EventsTracer:
         assert command == self._command
         assert returncode == 0
         self._messages.append("run_cmd_stop")
+
+    def _suite_timeout(self, suite_name, timeout) -> None:
+        self._messages.append("suite_timeout")
 
 
 class _TestSession:
@@ -148,6 +152,9 @@ class _TestSession:
         suitefile = runtest.join("dirsuite4")
         suitefile.write("dir05 script.sh 0 0 0 0 1")
 
+        suitefile = runtest.join("sleep")
+        suitefile.write("sleep01 sleep 1\nsleep02 sleep 2\nsleep03 sleep 3")
+
         # create scenario_groups folder
         scenario_dir = ltpdir.mkdir("scenario_groups")
 
@@ -182,7 +189,7 @@ class _TestSession:
 
         try:
             session = Session()
-            session.run_single(
+            retcode = session.run_single(
                 sut_config,
                 report_path,
                 suites,
@@ -190,6 +197,7 @@ class _TestSession:
                 ltpdir,
                 TempDir(root=tmpdir))
 
+            assert retcode == Session.RC_OK
             assert tracer.next_event() == "session_started"
             assert tracer.next_event() == "sut_start"
 
@@ -223,7 +231,7 @@ class _TestSession:
 
         try:
             session = Session()
-            session.run_single(
+            retcode = session.run_single(
                 sut_config,
                 report_path,
                 ["dirsuite0", "dirsuite1", "dirsuite2", "dirsuite3", "dirsuite4"],
@@ -236,6 +244,7 @@ class _TestSession:
             with open(report_path, 'r') as report_f:
                 report_d = json.loads(report_f.read())
 
+            assert retcode == Session.RC_OK
             tests = [item['test_fqn'] for item in report_d["results"]]
             assert "dir01" not in tests
             assert "dir02" not in tests
@@ -269,7 +278,7 @@ class _TestSession:
             sut_config["name"],
             None)
 
-        session.run_single(
+        retcode = session.run_single(
             sut_config,
             report_path,
             suites,
@@ -279,11 +288,42 @@ class _TestSession:
 
         thread.join(timeout=10)
 
+        assert retcode == Session.RC_OK
         assert os.path.exists(report_path)
         assert tracer.next_event() == "session_started"
         assert tracer.next_event() == "sut_start"
         assert tracer.next_event() == "sut_stop"
         assert tracer.next_event() == "session_stopped"
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_suite_timeout_report(self, tmpdir, sut_config, ltpdir):
+        """
+        Test suite timeout and verify that JSON report is created in any way.
+        """
+        report_path = str(tmpdir / "report.json")
+
+        session = Session(suite_timeout=0)
+
+        tracer = EventsTracer(
+            str(tmpdir),
+            sut_config["name"],
+            None)
+
+        retcode = session.run_single(
+            sut_config,
+            report_path,
+            ["sleep"],
+            None,
+            ltpdir,
+            TempDir(tmpdir))
+
+        assert retcode == Session.RC_TIMEOUT
+        assert os.path.exists(report_path)
+        assert tracer.next_event() == "session_started"
+        assert tracer.next_event() == "sut_start"
+        assert tracer.next_event() == "suite_timeout"
+        assert tracer.next_event() == "sut_stop"
+        assert tracer.next_event() == "session_completed"
 
 
 class TestHostSession(_TestSession):

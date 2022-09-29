@@ -18,6 +18,7 @@ from ltp.host import HostSUT
 from ltp.results import SuiteResults
 from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
+from ltp.dispatcher import SuiteTimeoutError
 from ltp.export import JSONExporter
 
 
@@ -50,6 +51,11 @@ class Session:
     """
     The main session handler.
     """
+
+    RC_OK = 0
+    RC_ERROR = 1
+    RC_INTERRUPT = 2
+    RC_TIMEOUT = 4
 
     def __init__(
             self,
@@ -246,7 +252,7 @@ class Session:
         if not sut_config:
             raise ValueError("sut configuration can't be empty")
 
-        exit_code = 0
+        exit_code = self.RC_OK
 
         with self._lock_run:
             self._sut = None
@@ -281,7 +287,6 @@ class Session:
                         ret["stdout"],
                         ret["returncode"])
 
-                results = None
                 if suites:
                     self._dispatcher = SerialDispatcher(
                         ltpdir=ltpdir,
@@ -292,26 +297,43 @@ class Session:
 
                     self._logger.info("Created dispatcher")
 
-                    results = self._dispatcher.exec_suites(
+                    self._dispatcher.exec_suites(
                         suites, skip_tests=skip_tests)
+
                     self._dispatcher.stop()
+            except SuiteTimeoutError:
+                exit_code = self.RC_TIMEOUT
+            except LTPException as err:
+                self._stop_all(timeout=60)
 
-                    if results:
-                        for result in results:
-                            self._print_results(result)
+                self._logger.error("Error: %s", str(err))
+                ltp.events.fire("session_error", str(err))
 
-                        exporter = JSONExporter()
+                exit_code = self.RC_ERROR
+            except KeyboardInterrupt:
+                self._logger.info("Keyboard interrupt")
+                self._stop_all(timeout=60)
+                ltp.events.fire("session_stopped")
 
-                        if tmpdir.abspath:
-                            # store JSON report in the temporary folder
-                            results_report = os.path.join(
-                                tmpdir.abspath,
-                                "results.json")
+                exit_code = self.RC_INTERRUPT
+            finally:
+                results = self._dispatcher.last_results
+                if results:
+                    for result in results:
+                        self._print_results(result)
 
-                            exporter.save_file(results, results_report)
+                    exporter = JSONExporter()
 
-                        if report_path:
-                            exporter.save_file(results, report_path)
+                    if tmpdir.abspath:
+                        # store JSON report in the temporary folder
+                        results_report = os.path.join(
+                            tmpdir.abspath,
+                            "results.json")
+
+                        exporter.save_file(results, results_report)
+
+                    if report_path:
+                        exporter.save_file(results, report_path)
 
                 if not suites or (results and len(suites) == len(results)):
                     # if the number of suites is the same of the number
@@ -319,18 +341,5 @@ class Session:
                     self._stop_sut(timeout=60)
                     ltp.events.fire("session_completed", results)
                     self._logger.info("Session completed")
-            except LTPException as err:
-                self._stop_all(timeout=60)
-
-                self._logger.error("Error: %s", str(err))
-                ltp.events.fire("session_error", str(err))
-
-                exit_code = 1
-            except KeyboardInterrupt:
-                self._logger.info("Keyboard interrupt")
-                self._stop_all(timeout=60)
-                ltp.events.fire("session_stopped")
-
-                exit_code = 2
 
         return exit_code

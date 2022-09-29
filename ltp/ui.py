@@ -69,6 +69,7 @@ class SimpleUserInterface(ConsoleUserInterface):
                             self.suite_download_started)
         ltp.events.register("suite_started", self.suite_started)
         ltp.events.register("suite_completed", self.suite_completed)
+        ltp.events.register("suite_timeout", self.suite_timeout)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
         ltp.events.register("run_cmd_start", self.run_cmd_start)
@@ -142,6 +143,11 @@ class SimpleUserInterface(ConsoleUserInterface):
         message += f"Distro Version: {results.distro_ver}\n"
 
         self._print(message)
+
+    def suite_timeout(self, suite: Suite, timeout: float) -> None:
+        self._print(
+            f"Suite '{suite.name}' timed out after {timeout} seconds",
+            color=self.RED)
 
     def test_started(self, test: Test) -> None:
         self._print(f"{test.name}: ", end="")
@@ -226,6 +232,7 @@ class VerboseUserInterface(ConsoleUserInterface):
                             self.suite_download_started)
         ltp.events.register("suite_started", self.suite_started)
         ltp.events.register("suite_completed", self.suite_completed)
+        ltp.events.register("suite_timeout", self.suite_timeout)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
         ltp.events.register("test_stdout_line", self.test_stdout_line)
@@ -310,6 +317,11 @@ class VerboseUserInterface(ConsoleUserInterface):
         message += f"Distro Version: {results.distro_ver}\n"
 
         self._print(message)
+
+    def suite_timeout(self, suite: Suite, timeout: float) -> None:
+        self._print(
+            f"Suite '{suite.name}' timed out after {timeout} seconds",
+            color=self.RED)
 
     def test_started(self, test: Test) -> None:
         self._print(f"running {test.name}")
