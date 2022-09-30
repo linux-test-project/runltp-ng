@@ -106,14 +106,23 @@ class _TestSUT:
             sut.communicate(iobuffer=Printer())
         sut.stop()
 
+    @pytest.fixture
+    def sut_stop_sleep(self, request):
+        """
+        Setup sleep time before calling stop after communicate.
+        By changing multiply factor it's possible to tweak stop sleep and
+        change the behaviour of `test_stop_communicate`.
+        """
+        return request.param * 1.0
+
     @pytest.mark.parametrize("force", [True, False])
-    @pytest.mark.parametrize("sleep_t", [1, 13])
-    def test_stop_communicate(self, sut, force, sleep_t):
+    @pytest.mark.parametrize("sut_stop_sleep", [1, 2, 4, 8], indirect=True)
+    def test_stop_communicate(self, sut, force, sut_stop_sleep):
         """
         Test stop method when running communicate.
         """
         def _threaded():
-            time.sleep(sleep_t)
+            time.sleep(sut_stop_sleep)
 
             if force:
                 sut.force_stop(timeout=4, iobuffer=Printer())

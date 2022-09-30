@@ -22,6 +22,13 @@ class TestHostSUT(_TestSUT):
     Test HostSUT implementation.
     """
 
+    @pytest.fixture
+    def sut_stop_sleep(self, request):
+        """
+        Host SUT test doesn't require time sleep in `test_stop_communicate`.
+        """
+        return request.param * 0
+
     def test_cwd(self, tmpdir):
         """
         Test CWD constructor argument.

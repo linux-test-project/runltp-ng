@@ -28,4 +28,4 @@ jobs:
       run: python3 -m pip install pytest pytest-xdist
 
     - name: Test with pytest
-      run: python3 -m pytest -n 20 -m "not qemu and not ssh"
+      run: python3 -m pytest -n 8 -m "not qemu and not ssh"
