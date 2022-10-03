@@ -319,30 +319,29 @@ class Session:
             finally:
                 if not self._dispatcher:
                     self._stop_sut(timeout=60)
-                    return exit_code
+                else:
+                    results = self._dispatcher.last_results
+                    if results:
+                        for result in results:
+                            self._print_results(result)
 
-                results = self._dispatcher.last_results
-                if results:
-                    for result in results:
-                        self._print_results(result)
+                        exporter = JSONExporter()
 
-                    exporter = JSONExporter()
+                        if tmpdir.abspath:
+                            # store JSON report in the temporary folder
+                            results_report = os.path.join(
+                                tmpdir.abspath,
+                                "results.json")
 
-                    if tmpdir.abspath:
-                        # store JSON report in the temporary folder
-                        results_report = os.path.join(
-                            tmpdir.abspath,
-                            "results.json")
+                            exporter.save_file(results, results_report)
 
-                        exporter.save_file(results, results_report)
+                        if report_path:
+                            exporter.save_file(results, report_path)
 
-                    if report_path:
-                        exporter.save_file(results, report_path)
-
-                if not suites or (results and len(suites) == len(results)):
-                    # session has not been stopped
-                    self._stop_sut(timeout=60)
-                    ltp.events.fire("session_completed", results)
-                    self._logger.info("Session completed")
+                    if not suites or (results and len(suites) == len(results)):
+                        # session has not been stopped
+                        self._stop_sut(timeout=60)
+                        ltp.events.fire("session_completed", results)
+                        self._logger.info("Session completed")
 
         return exit_code
