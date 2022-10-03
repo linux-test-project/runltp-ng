@@ -317,6 +317,10 @@ class Session:
 
                 exit_code = self.RC_INTERRUPT
             finally:
+                if not self._dispatcher:
+                    self._stop_sut(timeout=60)
+                    return exit_code
+
                 results = self._dispatcher.last_results
                 if results:
                     for result in results:
@@ -336,8 +340,7 @@ class Session:
                         exporter.save_file(results, report_path)
 
                 if not suites or (results and len(suites) == len(results)):
-                    # if the number of suites is the same of the number
-                    # of results we can say that session has not been stopped
+                    # session has not been stopped
                     self._stop_sut(timeout=60)
                     ltp.events.fire("session_completed", results)
                     self._logger.info("Session completed")
