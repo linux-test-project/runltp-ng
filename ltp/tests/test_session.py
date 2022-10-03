@@ -165,6 +165,35 @@ class _TestSession:
         scenario_def.write("dirsuite2\ndirsuite3\ndirsuite4\ndirsuite5")
 
     @pytest.mark.usefixtures("prepare_tmpdir")
+    def test_run_cmd(self, tmpdir, sut_config, ltpdir):
+        """
+        Run a session without suites but only one command run.
+        """
+        tracer = EventsTracer(
+            str(tmpdir),
+            sut_config["name"],
+            "ls -l")
+
+        try:
+            session = Session()
+            retcode = session.run_single(
+                sut_config,
+                None,
+                None,
+                "ls -l",
+                ltpdir,
+                TempDir(root=tmpdir))
+
+            assert retcode == Session.RC_OK
+            assert tracer.next_event() == "session_started"
+            assert tracer.next_event() == "sut_start"
+            assert tracer.next_event() == "run_cmd_start"
+            assert tracer.next_event() == "run_cmd_stop"
+            assert tracer.next_event() == "sut_stop"
+        finally:
+            session.stop()
+
+    @pytest.mark.usefixtures("prepare_tmpdir")
     @pytest.mark.parametrize("use_report", [True, False])
     @pytest.mark.parametrize("command", [None, "ls -1"])
     def test_run_single(
