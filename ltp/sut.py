@@ -21,6 +21,12 @@ class SUTTimeoutError(LTPException):
     """
 
 
+class KernelPanicError(LTPException):
+    """
+    Raised during kernel panic.
+    """
+
+
 class IOBuffer:
     """
     IO stdout buffer. The API is similar to ``IO`` types.

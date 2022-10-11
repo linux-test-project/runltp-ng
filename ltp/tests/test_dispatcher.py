@@ -125,7 +125,6 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
@@ -147,7 +146,6 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
@@ -195,7 +193,6 @@ class TestSerialDispatcher:
 
         ltp.events.register("test_started", stop_exec_suites)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
@@ -217,7 +214,6 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
@@ -295,7 +291,6 @@ class TestSerialDispatcher:
             suite_timeout=0.5,
             test_timeout=15)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
@@ -322,7 +317,6 @@ class TestSerialDispatcher:
             suite_timeout=15,
             test_timeout=0.5)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         try:
@@ -345,8 +339,6 @@ class TestSerialDispatcher:
             sut=sut,
             suite_timeout=0.5,
             test_timeout=15)
-
-        dispatcher._save_dmesg = MagicMock()
 
         class TainChecker:
             def __init__(self, dispatcher, bit, msg) -> None:
@@ -395,6 +387,9 @@ class TestSerialDispatcher:
         """
         Test kernel panic recognition.
         """
+        if sut.name == "testing_host":
+            pytest.skip("Not supported on Host")
+
         ltpdir = tmpdir / "ltp"
         runtest = ltpdir / "runtest"
 
@@ -409,7 +404,6 @@ class TestSerialDispatcher:
             suite_timeout=10,
             test_timeout=10)
 
-        dispatcher._save_dmesg = MagicMock()
         sut.get_tained_info = MagicMock(return_value=(0, ""))
 
         class PanicChecker:

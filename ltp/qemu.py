@@ -21,6 +21,7 @@ from ltp.sut import SUT
 from ltp.sut import IOBuffer
 from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
+from ltp.sut import KernelPanicError
 
 
 # pylint: disable=too-many-instance-attributes
@@ -257,9 +258,14 @@ class QemuSUT(SUT):
         t_secs = max(timeout, 0)
         t_start = time.time()
         stdout = ""
+        panic = False
 
         while not stdout.endswith(message):
             events = self._poller.poll(0.5)
+
+            if not events and panic:
+                raise KernelPanicError()
+
             for fdesc, _ in events:
                 if fdesc != self._proc.stdout.fileno():
                     continue
@@ -267,6 +273,9 @@ class QemuSUT(SUT):
                 data = self._read_stdout(1, iobuffer)
                 if data:
                     stdout += data
+
+                if stdout.endswith("Kernel panic"):
+                    panic = True
 
             if time.time() - t_start >= t_secs:
                 raise SUTTimeoutError(

@@ -15,6 +15,7 @@ import ltp.events
 from ltp import LTPException
 from ltp.sut import IOBuffer
 from ltp.sut import SUTTimeoutError
+from ltp.sut import KernelPanicError
 from ltp.data import Test
 from ltp.data import Suite
 from ltp.results import TestResults
@@ -157,12 +158,6 @@ class Dispatcher:
         raise NotImplementedError()
 
 
-class KernelPanicError(LTPException):
-    """
-    Raised during kernel panic.
-    """
-
-
 class StdoutChecker(IOBuffer):
     """
     Check for test's stdout and raise an exception if Kernel panic occured.
@@ -198,9 +193,6 @@ class StdoutChecker(IOBuffer):
                 self._line = ""
 
         self.stdout += data_str
-
-        if "Kernel panic" in self.stdout:
-            raise KernelPanicError()
 
     def flush(self) -> None:
         pass
