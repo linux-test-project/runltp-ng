@@ -20,6 +20,7 @@ from ltp.sut import SUT
 from ltp.sut import IOBuffer
 from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
+from ltp.sut import KernelPanicError
 
 try:
     from paramiko import SSHClient
@@ -152,6 +153,7 @@ class SSHSUT(SUT):
                       for _ in range(length))
         return out
 
+    # pylint: disable=too-many-locals
     def _exec(self, command: str, timeout: float, iobuffer: IOBuffer) -> str:
         """
         Execute a command and wait for command prompt.
@@ -170,6 +172,7 @@ class SSHSUT(SUT):
         stdout = ""
         t_secs = max(timeout, 0)
         t_start = time.time()
+        panic = False
 
         # register stdout poller
         stdout_fd = self._shell.fileno()
@@ -187,6 +190,10 @@ class SSHSUT(SUT):
                 break
 
             events = poller.poll(1)
+
+            if not events and panic:
+                raise KernelPanicError()
+
             for fdesc, _ in events:
                 if fdesc != stdout_fd:
                     break
@@ -200,6 +207,9 @@ class SSHSUT(SUT):
                     if iobuffer:
                         iobuffer.write(data)
                         iobuffer.flush()
+
+                    if stdout.endswith("Kernel panic"):
+                        panic = True
 
                     if time.time() - t_start >= t_secs:
                         raise SUTTimeoutError(
