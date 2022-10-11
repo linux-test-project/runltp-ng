@@ -6,8 +6,8 @@ import time
 import pytest
 from ltp.ssh import SSHSUT
 from ltp.sut import IOBuffer
+from ltp.sut import KernelPanicError
 from ltp.tests.sut import _TestSUT
-
 
 TEST_SSH_USERNAME = os.environ.get("TEST_SSH_USERNAME", None)
 TEST_SSH_PASSWORD = os.environ.get("TEST_SSH_PASSWORD", None)
@@ -105,6 +105,17 @@ class _TestSSHSUT(_TestSUT):
             assert ret["stdout"] == "0"
         else:
             assert ret["stdout"] != "0"
+
+    def test_kernel_panic(self, sut):
+        """
+        Test kernel panic recognition.
+        """
+        sut.communicate()
+
+        with pytest.raises(KernelPanicError):
+            sut.run_command(
+                "echo 'Kernel panic\nThis is a generic message'",
+                timeout=10)
 
 
 @pytest.mark.ssh

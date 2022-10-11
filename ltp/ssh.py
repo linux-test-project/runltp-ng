@@ -191,9 +191,6 @@ class SSHSUT(SUT):
 
             events = poller.poll(1)
 
-            if not events and panic:
-                raise KernelPanicError()
-
             for fdesc, _ in events:
                 if fdesc != stdout_fd:
                     break
@@ -208,12 +205,15 @@ class SSHSUT(SUT):
                         iobuffer.write(data)
                         iobuffer.flush()
 
-                    if stdout.endswith("Kernel panic"):
+                    if "Kernel panic" in stdout:
                         panic = True
 
                     if time.time() - t_start >= t_secs:
                         raise SUTTimeoutError(
                             f"Timed out waiting for {repr(self._ps1)}")
+
+        if panic:
+            raise KernelPanicError()
 
         # we don't want echo message
         if stdout and stdout.startswith(command):
