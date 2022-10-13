@@ -218,6 +218,7 @@ class VerboseUserInterface(ConsoleUserInterface):
 
         self._timed_out = False
         self._buffer = ""
+        self._line = ""
 
         ltp.events.register("session_started", self.session_started)
         ltp.events.register("session_stopped", self.session_stopped)
@@ -353,7 +354,26 @@ class VerboseUserInterface(ConsoleUserInterface):
         self._print(f"{cmd}\n", end="", color=self.CYAN)
 
     def run_cmd_stdout(self, data: bytes) -> None:
-        self._print(data.decode(encoding="utf-8", errors="ignore"))
+        data_str = data.decode(encoding="utf-8", errors="replace")
+
+        if len(data_str) == 1:
+            self._line += data_str
+            if data_str == "\n":
+                self._print(data_str)
+                self._line = ""
+        else:
+            lines = data_str.split('\n')
+            for line in lines[:-1]:
+                self._line += line
+
+                self._print(data_str)
+                self._line = ""
+
+            self._line = lines[-1]
+
+            if data_str.endswith('\n') and self._line:
+                self._print(data_str)
+                self._line = ""
 
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
         msg = f"\nExit code: {returncode}"
