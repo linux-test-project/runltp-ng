@@ -31,6 +31,9 @@ class TempDir:
             raise ValueError(f"root folder doesn't exist: {root}")
 
         self._root = root
+        if root:
+            self._root = os.path.abspath(root)
+
         self._max_rotate = max(max_rotate, 0)
         self._folder = self._rotate()
 
