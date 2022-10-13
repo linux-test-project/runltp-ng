@@ -491,6 +491,11 @@ class QemuSUT(SUT):
                 self._logger.info("Virtual machine started")
             except SUTError as err:
                 if not self._stop:
+                    if self._proc and self._proc.poll() is not None:
+                        # this can happen when shell is available but
+                        # something happened during commands execution
+                        self._proc.kill()
+
                     raise SUTError(err)
 
     def run_command(
