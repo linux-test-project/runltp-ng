@@ -461,6 +461,14 @@ class QemuSUT(SUT):
                 if ret["returncode"] != 0:
                     raise SUTError("Can't setup prompt string")
 
+                if self._virtfs:
+                    ret = self.run_command(
+                        "mount -t 9p -o trans=virtio host0 /mnt",
+                        timeout=10,
+                        iobuffer=iobuffer)
+                    if ret["returncode"] != 0:
+                        raise SUTError("Failed to mount virtfs")
+
                 if self._cwd:
                     ret = self.run_command(
                         f"cd {self._cwd}",
@@ -479,14 +487,6 @@ class QemuSUT(SUT):
                             raise SUTError(f"Can't setup env {key}={value}")
 
                 self._logged_in = True
-
-                if self._virtfs:
-                    ret = self.run_command(
-                        "mount -t 9p -o trans=virtio host0 /mnt",
-                        timeout=10,
-                        iobuffer=iobuffer)
-                    if ret["returncode"] != 0:
-                        raise SUTError("Failed to mount virtfs")
 
                 self._logger.info("Virtual machine started")
             except SUTError as err:
