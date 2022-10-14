@@ -355,24 +355,25 @@ class VerboseUserInterface(ConsoleUserInterface):
 
     def run_cmd_stdout(self, data: bytes) -> None:
         data_str = data.decode(encoding="utf-8", errors="replace")
+        data_str.replace('\r', '')
 
         if len(data_str) == 1:
             self._line += data_str
             if data_str == "\n":
-                self._print(data_str)
+                self._print(self._line, end='')
                 self._line = ""
         else:
             lines = data_str.split('\n')
             for line in lines[:-1]:
                 self._line += line
 
-                self._print(data_str)
+                self._print(self._line, end='')
                 self._line = ""
 
             self._line = lines[-1]
 
             if data_str.endswith('\n') and self._line:
-                self._print(data_str)
+                self._print(self._line, end='')
                 self._line = ""
 
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
