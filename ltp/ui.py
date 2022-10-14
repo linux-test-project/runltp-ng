@@ -341,6 +341,8 @@ class VerboseUserInterface(ConsoleUserInterface):
                 col = self.GREEN
             elif "TFAIL" in line:
                 col = self.RED
+            elif "TBROK" in line:
+                col = self.RED
             elif "TSKIP" in line:
                 col = self.YELLOW
             elif "TCONF" in line:
