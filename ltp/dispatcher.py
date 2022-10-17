@@ -13,6 +13,7 @@ import threading
 import ltp.data
 import ltp.events
 from ltp import LTPException
+from ltp.sut import SUT
 from ltp.sut import IOBuffer
 from ltp.sut import SUTTimeoutError
 from ltp.sut import KernelPanicError
@@ -198,6 +199,24 @@ class StdoutChecker(IOBuffer):
         pass
 
 
+class RedirectStdout(IOBuffer):
+    """
+    Redirect data from stdout to events.
+    """
+
+    def __init__(self, sut: SUT) -> None:
+        self._sut = sut
+
+    def write(self, data: bytes) -> None:
+        if not self._sut:
+            return
+
+        ltp.events.fire("sut_stdout_line", self._sut.name, data)
+
+    def flush(self) -> None:
+        pass
+
+
 class SerialDispatcher(Dispatcher):
     """
     Dispatcher implementation that serially runs test suites one after
@@ -292,11 +311,13 @@ class SerialDispatcher(Dispatcher):
         ltp.events.fire("sut_restart", self._sut.name)
 
         if force:
-            self._sut.force_stop()
+            self._sut.force_stop(timeout=360)
         else:
-            self._sut.stop()
+            self._sut.stop(timeout=360)
 
-        self._sut.communicate()
+        self._sut.communicate(
+            timeout=3600,
+            iobuffer=RedirectStdout(self._sut))
 
         self._logger.info("SUT rebooted")
 
