@@ -37,9 +37,9 @@ class ConsoleUserInterface:
         Print a message.
         """
         if color and self._colors_rule != "none":
-            print(color + msg + '\033[0m', end=end)
+            print(color + msg + '\033[0m', end=end, flush=True)
         else:
-            print(msg, end=end)
+            print(msg, end=end, flush=True)
 
 
 class SimpleUserInterface(ConsoleUserInterface):
