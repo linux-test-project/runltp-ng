@@ -138,6 +138,7 @@ class Session:
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
         env["LTPROOT"] = ltpdir
         env["TMPDIR"] = tmpdir.root if tmpdir.root else "/tmp"
+        env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
 
         if self._colors_rule == "ltp":
             env["LTP_COLORIZE_OUTPUT"] = "1"
