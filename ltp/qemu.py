@@ -32,22 +32,11 @@ class QemuSUT(SUT):
     a protected, virtualized environment.
     """
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__()
-
+    def __init__(self) -> None:
         self._logger = logging.getLogger("ltp.qemu")
-        self._tmpdir = kwargs.get("tmpdir", None)
-        self._image = kwargs.get("image", None)
-        self._image_overlay = kwargs.get("image_overlay", None)
-        self._ro_image = kwargs.get("ro_image", None)
-        self._password = kwargs.get("password", "root")
-        self._opts = kwargs.get("options", None)
-        self._ram = kwargs.get("ram", "2G")
-        self._smp = kwargs.get("smp", "2")
-        self._virtfs = kwargs.get("virtfs", None)
-        self._serial_type = kwargs.get("serial", "isa")
-        self._env = kwargs.get("env", None)
-        self._cwd = kwargs.get("cwd", None)
+        self._tmpdir = None
+        self._env = None
+        self._cwd = None
         self._proc = None
         self._poller = None
         self._stop = False
@@ -57,34 +46,16 @@ class QemuSUT(SUT):
         self._ps1 = f"#{self._generate_string()}#"
         self._logged_in = False
         self._last_pos = 0
-
-        system = kwargs.get("system", "x86_64")
-        self._qemu_cmd = f"qemu-system-{system}"
-
-        if not self._tmpdir or not os.path.isdir(self._tmpdir):
-            raise ValueError(
-                f"Temporary directory doesn't exist: {self._tmpdir}")
-
-        if not self._image or not os.path.isfile(self._image):
-            raise ValueError(
-                f"Image location doesn't exist: {self._image}")
-
-        if self._ro_image and not os.path.isfile(self._ro_image):
-            raise ValueError(
-                f"Read-only image location doesn't exist: {self._ro_image}")
-
-        if not self._ram:
-            raise ValueError("RAM is not defined")
-
-        if not self._smp:
-            raise ValueError("CPU is not defined")
-
-        if self._virtfs and not os.path.isdir(self._virtfs):
-            raise ValueError(
-                f"Virtual FS directory doesn't exist: {self._virtfs}")
-
-        if self._serial_type not in ["isa", "virtio"]:
-            raise ValueError("Serial protocol must be isa or virtio")
+        self._image = None
+        self._image_overlay = None
+        self._ro_image = None
+        self._password = None
+        self._ram = None
+        self._smp = None
+        self._virtfs = None
+        self._serial_type = None
+        self._qemu_cmd = None
+        self._opts = None
 
     @staticmethod
     def _generate_string(length: int = 10) -> str:
@@ -169,6 +140,65 @@ class QemuSUT(SUT):
         cmd = f"{self._qemu_cmd} {' '.join(params)}"
 
         return cmd
+
+    def setup(self, **kwargs: dict) -> None:
+        self._logger.info("Initialize SUT")
+
+        self._env = kwargs.get("env", None)
+        self._cwd = kwargs.get("cwd", None)
+        self._tmpdir = kwargs.get("tmpdir", None)
+        self._image = kwargs.get("image", None)
+        self._image_overlay = kwargs.get("image_overlay", None)
+        self._ro_image = kwargs.get("ro_image", None)
+        self._password = kwargs.get("password", "root")
+        self._ram = kwargs.get("ram", "2G")
+        self._smp = kwargs.get("smp", "2")
+        self._virtfs = kwargs.get("virtfs", None)
+        self._serial_type = kwargs.get("serial", "isa")
+        self._opts = kwargs.get("options", None)
+
+        system = kwargs.get("system", "x86_64")
+        self._qemu_cmd = f"qemu-system-{system}"
+
+        if not self._tmpdir or not os.path.isdir(self._tmpdir):
+            raise SUTError(
+                f"Temporary directory doesn't exist: {self._tmpdir}")
+
+        if not self._image or not os.path.isfile(self._image):
+            raise SUTError(
+                f"Image location doesn't exist: {self._image}")
+
+        if self._ro_image and not os.path.isfile(self._ro_image):
+            raise SUTError(
+                f"Read-only image location doesn't exist: {self._ro_image}")
+
+        if not self._ram:
+            raise SUTError("RAM is not defined")
+
+        if not self._smp:
+            raise SUTError("CPU is not defined")
+
+        if self._virtfs and not os.path.isdir(self._virtfs):
+            raise SUTError(
+                f"Virtual FS directory doesn't exist: {self._virtfs}")
+
+        if self._serial_type not in ["isa", "virtio"]:
+            raise SUTError("Serial protocol must be isa or virtio")
+
+    @property
+    def config_help(self) -> dict:
+        return dict(
+            image="qcow2 image location",
+            image_overlay="image_overlay: image copy location",
+            password="root password (default: root)",
+            system="system architecture (default: x86_64)",
+            ram="RAM of the VM (default: 2G)",
+            smp="number of CPUs (default: 2)",
+            serial="type of serial protocol. isa|virtio (default: isa)",
+            virtfs="directory to mount inside VM",
+            ro_image="path of the image that will exposed as read only",
+            options="user defined options",
+        )
 
     @property
     def name(self) -> str:

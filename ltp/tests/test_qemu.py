@@ -44,7 +44,8 @@ class TestQemuSUTISA(_TestQemuSUT):
 
     @pytest.fixture
     def sut(self, tmpdir):
-        runner = QemuSUT(
+        runner = QemuSUT()
+        runner.setup(
             tmpdir=str(tmpdir),
             image=TEST_QEMU_IMAGE,
             password=TEST_QEMU_PASSWORD,
@@ -63,7 +64,8 @@ class TestQemuSUTVirtIO(_TestQemuSUT):
 
     @pytest.fixture
     def sut(self, tmpdir):
-        runner = QemuSUT(
+        runner = QemuSUT()
+        runner.setup(
             tmpdir=str(tmpdir),
             image=TEST_QEMU_IMAGE,
             password=TEST_QEMU_PASSWORD,

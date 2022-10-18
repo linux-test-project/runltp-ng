@@ -27,17 +27,26 @@ class HostSUT(SUT):
     # override it without using PropertyMock that seems to be bugged
     NAME = "host"
 
-    def __init__(self, cwd: str = None, env: dict = None) -> None:
-        super().__init__()
-
+    def __init__(self) -> None:
         self._logger = logging.getLogger("ltp.host")
-        self._proc = None
-        self._stop = False
         self._initialized = False
-        self._cwd = cwd
-        self._env = env
         self._cmd_lock = threading.Lock()
         self._fetch_lock = threading.Lock()
+        self._proc = None
+        self._stop = False
+        self._cwd = None
+        self._env = None
+
+    def setup(self, **kwargs: dict) -> None:
+        self._logger.info("Initialize SUT")
+
+        self._cwd = kwargs.get('cwd', None)
+        self._env = kwargs.get('env', None)
+
+    @property
+    def config_help(self) -> dict:
+        # cwd and env are given by default, so no options are needed
+        return {}
 
     @property
     def name(self) -> str:

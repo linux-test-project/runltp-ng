@@ -13,9 +13,6 @@ import ltp.events
 from ltp import LTPException
 from ltp.sut import SUT
 from ltp.sut import IOBuffer
-from ltp.qemu import QemuSUT
-from ltp.host import HostSUT
-from ltp.ssh import SSHSUT
 from ltp.results import SuiteResults
 from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
@@ -60,10 +57,13 @@ class Session:
 
     def __init__(
             self,
+            suts: list,
             suite_timeout: float = 3600,
             exec_timeout: float = 3600,
             no_colors: bool = False) -> None:
         """
+        :param suts: list of SUT
+        :type suts: list(SUT)
         :param suite_timeout: timeout before stopping testing suite
         :type suite_timeout: float
         :param exec_timeout: timeout before stopping single execution
@@ -72,6 +72,7 @@ class Session:
         :type no_colors: bool
         """
         self._logger = logging.getLogger("ltp.session")
+        self._suts = suts
         self._suite_timeout = max(suite_timeout, 0)
         self._exec_timeout = max(exec_timeout, 0)
         self._sut = None
@@ -120,6 +121,27 @@ class Session:
         self._logger.info("Distro version: %s", suite_results.distro_ver)
         self._logger.info("")
 
+    def _get_sut(self, name: str, config: dict) -> SUT:
+        """
+        Return the SUT according with its name.
+        :param name: name of the SUT
+        :type name: str
+        :returns: SUT
+        """
+        mysut = None
+
+        for sut in self._suts:
+            if sut.name == name:
+                mysut = sut
+                break
+
+        if not mysut:
+            raise SessionError(f"'{name}' SUT is not available")
+
+        mysut.setup(**config)
+
+        return mysut
+
     def _start_sut(
             self,
             ltpdir: str,
@@ -128,10 +150,7 @@ class Session:
         """
         Start a new SUT and return it initialized.
         """
-        sut_name = sut_config.pop("name", None)
-        if sut_name not in ["qemu", "host", "ssh"]:
-            raise ValueError(f"{sut_name} is not supported")
-
+        sut_name = sut_config.get("name", None)
         testcases = os.path.join(ltpdir, "testcases", "bin")
 
         env = {}
@@ -153,22 +172,20 @@ class Session:
         config.update(sut_config)
 
         sut = None
-        timeout = 0.0
+        for mysut in self._suts:
+            if mysut.name == sut_name:
+                sut = mysut
+                break
 
-        if sut_name == 'qemu':
-            sut = QemuSUT(**config)
-            timeout = 360.0
-        elif sut_name == 'ssh':
-            sut = SSHSUT(**config)
-            timeout = 360.0
-        else:
-            sut = HostSUT(cwd=ltpdir, env=env)
-            timeout = 10.0
+        if not sut:
+            raise SessionError(f"'{sut_name}' SUT is not available")
+
+        sut.setup(**config)
 
         ltp.events.fire("sut_start", sut.name)
 
         sut.communicate(
-            timeout=timeout,
+            timeout=3600,
             iobuffer=Printer(sut, False))
 
         return sut

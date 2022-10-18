@@ -8,13 +8,21 @@
 import os
 import re
 import sys
+import inspect
 import argparse
+import importlib
+import importlib.util
 from argparse import ArgumentParser
 from argparse import Namespace
+from ltp.sut import SUT
 from ltp.tempfile import TempDir
 from ltp.session import Session
 from ltp.ui import SimpleUserInterface
 from ltp.ui import VerboseUserInterface
+
+
+# runtime loaded SUT(s)
+LOADED_SUT = []
 
 
 def _from_params_to_config(params: list) -> dict:
@@ -45,157 +53,27 @@ def _from_params_to_config(params: list) -> dict:
     return config
 
 
-def _get_qemu_config(params: list) -> dict:
-    """
-    Return qemu configuration.
-    """
-    config = _from_params_to_config(params)
-
-    if "image" not in config:
-        raise argparse.ArgumentTypeError(
-            "'image' parameter is required by qemu SUT")
-
-    defaults = (
-        'image',
-        'image_overlay',
-        'password',
-        'system',
-        'ram',
-        'smp',
-        'serial',
-        'ro_image',
-        'virtfs'
-    )
-
-    if not set(config).issubset(defaults):
-        raise argparse.ArgumentTypeError(
-            "Some parameters are not supported. "
-            f"Please use the following: {', '.join(defaults)}")
-
-    if "image" in config and not os.path.isfile(config["image"]):
-        raise argparse.ArgumentTypeError("Qemu image doesn't exist")
-
-    if "image_overlay" in config and os.path.isfile(config["image_overlay"]):
-        raise argparse.ArgumentTypeError("Qemu image overlay already exist")
-
-    if "password" in config and not config["password"]:
-        raise argparse.ArgumentTypeError("Qemu password is empty")
-
-    if "smp" in config and not str.isdigit(config["smp"]):
-        raise argparse.ArgumentTypeError("smp must be and integer")
-
-    return config
-
-
-# pylint: disable=too-many-branches
-def _get_ssh_config(params: list) -> dict:
-    """
-    Return the SSH SUT configuration.
-    """
-    config = _from_params_to_config(params)
-
-    if 'host' not in config:
-        raise argparse.ArgumentTypeError(
-            "'host' parameter is required by qemu SUT")
-
-    defaults = (
-        'host',
-        'port',
-        'user',
-        'password',
-        'key_file',
-        'hostkey_policy',
-        'known_hosts',
-        'timeout',
-        'reset_command',
-        'sudo',
-    )
-
-    if not set(config).issubset(defaults):
-        raise argparse.ArgumentTypeError(
-            "Some parameters are not supported. "
-            f"Please use the following: {', '.join(defaults)}")
-
-    if "host" in config:
-        if not config["host"]:
-            raise argparse.ArgumentTypeError("host doesn't exist")
-
-    if "port" in config:
-        port = config["port"]
-        if not str.isdigit(port) and int(port) not in range(1, 65536):
-            raise argparse.ArgumentTypeError(
-                "port must be and integer inside [1-65535]")
-
-    if "user" in config:
-        if not config["user"]:
-            raise argparse.ArgumentTypeError("user is empty")
-
-    if "password" in config:
-        if not config["password"]:
-            raise argparse.ArgumentTypeError("password is empty")
-
-    if "timeout" in config:
-        if not str.isdigit(config["timeout"]):
-            raise argparse.ArgumentTypeError("timeout must be an integer")
-
-    if "key_file" in config:
-        if not os.path.isfile(config["key_file"]):
-            raise argparse.ArgumentTypeError("key_file doesn't exist")
-
-    if "hostkey_policy" in config:
-        policy = config["hostkey_policy"]
-        if policy not in ["auto", "missing", "reject"]:
-            raise argparse.ArgumentTypeError(
-                f"'{policy}' host key policy is not supported")
-
-    if "known_hosts" in config:
-        known_hosts = config["known_hosts"]
-        if not os.path.isfile(known_hosts) and known_hosts != "/dev/null":
-            raise argparse.ArgumentTypeError("known_hosts file doesn't exist")
-
-    if "sudo" in config:
-        sudo = config["sudo"]
-        if not str.isdigit(sudo) and int(sudo) not in [0, 1]:
-            raise argparse.ArgumentTypeError("sudo must be 1 or 0")
-
-    return config
-
-
 def _sut_config(value: str) -> dict:
     """
     Return a SUT configuration according with input string.
-    Format for value is, for example:
-
-        qemu:ram=4G:smp=4:image=/local/vm.qcow2:virtfs=/opt/ltp:password=123
-
     """
     if value == "help":
         msg = "--sut option supports the following syntax:\n"
         msg += "\n\t<SUT>:<param1>=<value1>:<param2>=<value2>:..\n"
-        msg += "\nSupported SUT:\n"
-        msg += "\thost: current machine (default)\n"
-        msg += "\tqemu: Qemu virtual machine\n"
-        msg += "\nqemu parameters:\n"
-        msg += "\timage: qcow2 image location\n"
-        msg += "\timage_overlay: image copy location\n"
-        msg += "\tpassword: root password (default: root)\n"
-        msg += "\tsystem: system architecture (default: x86_64\n"
-        msg += "\tram: RAM of the VM (default: 2G)\n"
-        msg += "\tsmp: number of CPUs (default: 2)\n"
-        msg += "\tserial: type of serial protocol. isa|virtio (default: isa)\n"
-        msg += "\tvirtfs: directory to mount inside VM\n"
-        msg += "\tro_image: path of the image that will exposed as read only\n"
-        msg += "\nssh parameters:\n"
-        msg += "\thost: IP address of the SUT (default: localhost)\n"
-        msg += "\tport: TCP port of the service (default: 22)\n"
-        msg += "\tuser: name of the user (default: root)\n"
-        msg += "\tpassword: user's password\n"
-        msg += "\ttimeout: connection timeout in seconds (default: 10)\n"
-        msg += "\tkey_file: private key location\n"
-        msg += "\thostkey_policy: host key policy - auto | missing | reject. (default: auto)\n"
-        msg += "\tknown_hosts: known_hosts file (default: ~/.ssh/known_hosts)\n"
-        msg += "\treset_command: command to reset the remote SUT\n"
-        msg += "\tsudo: use sudo to access to root shell (default: 0)\n"
+        msg += "\nSupported SUT: | "
+
+        for sut in LOADED_SUT:
+            msg += f"{sut.name} | "
+
+        msg += '\n'
+
+        for sut in LOADED_SUT:
+            if not sut.config_help:
+                msg += f"\n{sut.name} has not configuration\n"
+            else:
+                msg += f"\n{sut.name} configuration:\n"
+                for opt, desc in sut.config_help.items():
+                    msg += f"\t{opt}: {desc}\n"
 
         return dict(help=msg)
 
@@ -205,19 +83,42 @@ def _sut_config(value: str) -> dict:
     params = value.split(':')
     name = params[0]
 
-    config = None
-    if name == 'qemu':
-        config = _get_qemu_config(params[1:])
-    elif name == 'ssh':
-        config = _get_ssh_config(params[1:])
-    elif name == 'host':
-        config = _from_params_to_config(params[1:])
-    else:
-        raise argparse.ArgumentTypeError(f"'{name}' SUT is not supported")
-
+    config = _from_params_to_config(params[1:])
     config['name'] = name
 
     return config
+
+
+def _discover_sut(folder: str) -> list:
+    """
+    Discover new SUT implementations inside a specific folder.
+    """
+    LOADED_SUT.clear()
+
+    for myfile in os.listdir(folder):
+        if not myfile.endswith('.py'):
+            continue
+
+        path = os.path.join(folder, myfile)
+        if not os.path.isfile(path):
+            continue
+
+        spec = importlib.util.spec_from_file_location('sut', path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        members = inspect.getmembers(module, inspect.isclass)
+        for _, klass in members:
+            if klass.__module__ != module.__name__ or \
+                    klass is SUT or \
+                    klass in LOADED_SUT:
+                continue
+
+            if issubclass(klass, SUT):
+                LOADED_SUT.append(klass())
+
+    if len(LOADED_SUT) > 0:
+        LOADED_SUT.sort(key=lambda x: x.name)
 
 
 def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
@@ -267,6 +168,7 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         SimpleUserInterface(args.no_colors)
 
     session = Session(
+        LOADED_SUT,
         suite_timeout=args.suite_timeout,
         exec_timeout=args.exec_timeout,
         no_colors=args.no_colors)
@@ -289,6 +191,8 @@ def run() -> None:
     """
     Entry point of the application.
     """
+    _discover_sut(os.path.dirname(os.path.realpath(__file__)))
+
     parser = argparse.ArgumentParser(description='LTP next-gen runner')
     parser.add_argument(
         "--verbose",

@@ -14,6 +14,7 @@ import string
 import secrets
 import logging
 import threading
+import importlib
 import subprocess
 import ltp.sut
 from ltp.sut import SUT
@@ -43,36 +44,35 @@ class SSHSUT(SUT):
     """
 
     # pylint: disable=too-many-statements
-    def __init__(self, **kwargs) -> None:
-        """
-        :param tmpdir: temporary directory
-        :type tmpdir: str
-        :param host: TCP address
-        :type host: str
-        :param port: TCP port
-        :type port: int
-        :param user: username for logging in
-        :type user: str
-        :param password: password for logging in
-        :type password: str
-        :param key_file: file of the SSH keys
-        :type key_file: str
-        :param known_hosts: known_hosts file location.
-            Default: ~/.ssh/known_hosts
-        :type known_hosts: str
-        :param hostkey_policy: host key policy (auto, missing, reject).
-            Default: auto
-        :type hostkey_policy: str
-        :param reset_cmd: reset command to execute during stop
-        :type reset_cmd: str
-        :param sudo: if 1, use sudo to access a root shell
-        :type sudo: int
-        :param env: environment variables
-        :type env: dict
-        :param cwd: current working directory
-        :type cwd: dict
-        """
+    def __init__(self) -> None:
         self._logger = logging.getLogger("ltp.sut.ssh")
+        self._tmpdir = None
+        self._host = "localhost"
+        self._port = 22
+        self._user = "root"
+        self._password = None
+        self._pkey = None
+        self._reset_cmd = None
+        self._sudo = 0
+        self._env = None
+        self._cwd = None
+        self._ps1 = f"#{self._generate_string()}#"
+        self._cmd_lock = threading.Lock()
+        self._comm_lock = threading.Lock()
+        self._fetch_lock = threading.Lock()
+        self._stop = False
+        self._shell = None
+        self._client = None
+
+    def setup(self, **kwargs: dict) -> None:
+        if not importlib.util.find_spec('paramiko'):
+            raise SUTError("'paramiko' library is not available")
+
+        if not importlib.util.find_spec('scp'):
+            raise SUTError("'scp' library is not available")
+
+        self._logger.info("Initialize SUT")
+
         self._tmpdir = kwargs.get("tmpdir", None)
         self._host = kwargs.get("host", "localhost")
         self._port = int(kwargs.get("port", "22"))
@@ -93,56 +93,66 @@ class SSHSUT(SUT):
         self._stop = False
         self._shell = None
         self._client = None
-        self._no_paramiko = False
 
         if hostkey_policy not in ["auto", "missing", "reject"]:
-            raise ValueError(f"'{hostkey_policy}' policy is not available")
+            raise SUTError(f"'{hostkey_policy}' policy is not available")
 
-        try:
-            self._client = SSHClient()
+        self._client = SSHClient()
 
-            # if /dev/null is given, we emulate -o UserKnownHostsFile=/dev/null
-            # avoiding know_hosts file usage
-            self._logger.info("Loading system host keys: %s", known_hosts)
-            if known_hosts != "/dev/null":
-                self._client.load_system_host_keys(known_hosts)
+        # if /dev/null is given, we emulate -o UserKnownHostsFile=/dev/null
+        # avoiding know_hosts file usage
+        self._logger.info("Loading system host keys: %s", known_hosts)
+        if known_hosts != "/dev/null":
+            self._client.load_system_host_keys(known_hosts)
 
-            if hostkey_policy == "auto":
-                self._logger.info("Using auto add policy for host keys")
-                self._client.set_missing_host_key_policy(
-                    AutoAddPolicy())
-            elif hostkey_policy == "missing":
-                self._logger.info("Using missing policy for host keys")
-                self._client.set_missing_host_key_policy(
-                    MissingHostKeyPolicy())
-            else:
-                self._logger.info("Using reject policy for host keys")
-                # for security reasons, we choose "reject" as default behavior
-                self._client.set_missing_host_key_policy(
-                    RejectPolicy())
-        except NameError:
-            self._logger.info("Paramiko is not installed")
-            self._no_paramiko = True
+        if hostkey_policy == "auto":
+            self._logger.info("Using auto add policy for host keys")
+            self._client.set_missing_host_key_policy(
+                AutoAddPolicy())
+        elif hostkey_policy == "missing":
+            self._logger.info("Using missing policy for host keys")
+            self._client.set_missing_host_key_policy(
+                MissingHostKeyPolicy())
+        else:
+            self._logger.info("Using reject policy for host keys")
+            # for security reasons, we choose "reject" as default behavior
+            self._client.set_missing_host_key_policy(
+                RejectPolicy())
 
         if not self._tmpdir or not os.path.isdir(self._tmpdir):
-            raise ValueError(
+            raise SUTError(
                 f"Temporary directory doesn't exist: {self._tmpdir}")
 
         if not self._host:
-            raise ValueError("host is empty")
+            raise SUTError("host is empty")
 
         if not self._user:
-            raise ValueError("user is empty")
+            raise SUTError("user is empty")
 
         if self._port <= 0 or self._port >= 65536:
-            raise ValueError("port is out of range")
+            raise SUTError("port is out of range")
 
         if key_file and not os.path.isfile(key_file):
-            raise ValueError("private key doesn't exist")
+            raise SUTError("private key doesn't exist")
 
         if key_file:
             self._logger.info("Reading key file: %s", key_file)
             self._pkey = RSAKey.from_private_key_file(key_file)
+
+    @property
+    def config_help(self) -> dict:
+        return dict(
+            host="IP address of the SUT (default: localhost)",
+            port="TCP port of the service (default: 22)",
+            user="name of the user (default: root)",
+            password="root password",
+            timeout="connection timeout in seconds (default: 10)",
+            key_file="private key location",
+            hostkey_policy="host key policy - auto | missing | reject. (default: auto)",
+            known_hosts="known_hosts file (default: ~/.ssh/known_hosts)",
+            reset_command="command to reset the remote SUT",
+            sudo="use sudo to access to root shell (default: 0)",
+        )
 
     @staticmethod
     def _generate_string(length: int = 10) -> str:
@@ -231,9 +241,6 @@ class SSHSUT(SUT):
 
     @property
     def is_running(self) -> bool:
-        if self._no_paramiko:
-            raise SUTError("Paramiko is not present on system")
-
         if self._client and self._client.get_transport():
             return self._client.get_transport().is_active()
 

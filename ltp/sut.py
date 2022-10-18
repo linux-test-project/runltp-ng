@@ -73,6 +73,23 @@ class SUT:
     machine instance, etc.
     """
 
+    def setup(self, **kwargs: dict) -> None:
+        """
+        Initialize SUT using configuration dictionary.
+        :param kwargs: SUT configuration
+        :type kwargs: dict
+        """
+        raise NotImplementedError()
+
+    @property
+    def config_help(self) -> dict:
+        """
+        Associate each configuration option with a help message.
+        This is used by the main menu application to generate --help message.
+        :returns: dict
+        """
+        raise NotImplementedError()
+
     @property
     def is_running(self) -> bool:
         """

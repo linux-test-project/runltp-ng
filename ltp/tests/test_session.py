@@ -7,6 +7,8 @@ import stat
 import threading
 import pytest
 import ltp.events
+from ltp.host import HostSUT
+from ltp.qemu import QemuSUT
 from ltp.session import Session
 from ltp.tempfile import TempDir
 
@@ -89,6 +91,16 @@ class _TestSession:
         ltp.events.reset()
 
     @pytest.fixture
+    def suts(self):
+        """
+        Current implemented SUT in the default runltp-ng implementation.
+        """
+        return [
+            HostSUT(),
+            QemuSUT()
+        ]
+
+    @pytest.fixture
     def ltpdir(self):
         """
         LTP install directory.
@@ -165,7 +177,7 @@ class _TestSession:
         scenario_def.write("dirsuite2\ndirsuite3\ndirsuite4\ndirsuite5")
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_run_cmd(self, tmpdir, sut_config, ltpdir):
+    def test_run_cmd(self, suts, tmpdir, sut_config, ltpdir):
         """
         Run a session without suites but only one command run.
         """
@@ -175,7 +187,7 @@ class _TestSession:
             "ls -l")
 
         try:
-            session = Session()
+            session = Session(suts)
             retcode = session.run_single(
                 sut_config,
                 None,
@@ -198,6 +210,7 @@ class _TestSession:
     @pytest.mark.parametrize("command", [None, "ls -1"])
     def test_run_single(
             self,
+            suts,
             tmpdir,
             use_report,
             suites,
@@ -217,7 +230,7 @@ class _TestSession:
             command)
 
         try:
-            session = Session()
+            session = Session(suts)
             retcode = session.run_single(
                 sut_config,
                 report_path,
@@ -250,6 +263,7 @@ class _TestSession:
     @pytest.mark.usefixtures("prepare_tmpdir")
     def test_skip_tests(
             self,
+            suts,
             tmpdir,
             sut_config,
             ltpdir):
@@ -259,7 +273,7 @@ class _TestSession:
         report_path = str(tmpdir / "report.json")
 
         try:
-            session = Session()
+            session = Session(suts)
             retcode = session.run_single(
                 sut_config,
                 report_path,
@@ -284,13 +298,13 @@ class _TestSession:
             session.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_stop(self, tmpdir, sut_config, ltpdir, suites):
+    def test_stop(self, suts, tmpdir, sut_config, ltpdir, suites):
         """
         Run a session using a specific sut configuration.
         """
         report_path = str(tmpdir / "report.json")
 
-        session = Session()
+        session = Session(suts)
 
         def _threaded():
             session.stop(timeout=3)
@@ -325,13 +339,13 @@ class _TestSession:
         assert tracer.next_event() == "session_stopped"
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_suite_timeout_report(self, tmpdir, sut_config, ltpdir):
+    def test_suite_timeout_report(self, suts, tmpdir, sut_config, ltpdir):
         """
         Test suite timeout and verify that JSON report is created in any way.
         """
         report_path = str(tmpdir / "report.json")
 
-        session = Session(suite_timeout=0)
+        session = Session(suts, suite_timeout=0)
 
         tracer = EventsTracer(
             str(tmpdir),

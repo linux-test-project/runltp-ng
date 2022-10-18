@@ -96,6 +96,21 @@ To enable console on a tty device for a VM do:
 Where `$tty_name` should be `ttyS0`, unless virtio serial type is used (i.e.
 if you set the `serial=virtio` backend option, then use `hvc0`)
 
+Implementing SUT
+================
+
+Sometimes we need to cover complex testing scenarios, where the SUT uses
+particular protocols and infrastructures, in order to communicate with our
+host machine and to execute tests binaries.
+
+For this reason, `runltp-ng` provides a plugin system to recognize custom SUT
+class implementations inside the `ltp` package folder. Please check `host.py`
+or `ssh.py` implementations for more details.
+
+Once a new SUT class is implemented and placed inside the `ltp` package folder,
+`runltp-ng -s help` command can be used to see if application correctly
+recognise it.
+
 Development
 ===========
 

@@ -39,7 +39,8 @@ class TestSerialDispatcher:
         env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
 
-        sut = HostSUT(cwd=testcases, env=env)
+        sut = HostSUT()
+        sut.setup(cwd=testcases, env=env)
         # hack: force the SUT to be recognized as a different host
         # so we can reboot it
         sut.NAME = "testing_host"

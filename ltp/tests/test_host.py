@@ -36,7 +36,8 @@ class TestHostSUT(_TestSUT):
         myfile = tmpdir / "myfile"
         myfile.write("runltp-ng tests")
 
-        sut = HostSUT(cwd=str(tmpdir))
+        sut = HostSUT()
+        sut.setup(cwd=str(tmpdir))
         sut.communicate(iobuffer=Printer())
 
         ret = sut.run_command("cat myfile", timeout=2, iobuffer=Printer())
@@ -50,7 +51,8 @@ class TestHostSUT(_TestSUT):
         myfile = tmpdir / "myfile"
         myfile.write("runltp-ng tests")
 
-        sut = HostSUT(cwd=str(tmpdir), env=dict(FILE=str(myfile)))
+        sut = HostSUT()
+        sut.setup(cwd=str(tmpdir), env=dict(FILE=str(myfile)))
         sut.communicate(iobuffer=Printer())
 
         ret = sut.run_command("cat $FILE", timeout=2, iobuffer=Printer())
