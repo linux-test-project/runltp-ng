@@ -33,6 +33,18 @@ Every session has a temporary directory which can be found in
 called `latest`, pointing to the latest session's temporary directory, and the
 application will rotate over 5 sessions.
 
+Setting up console for Qemu
+===========================
+
+To enable console on a tty device for a VM do:
+
+* open /etc/default/grub
+* add `console=$tty_name, console=tty0` to `GRUB_CMDLINE_LINUX`
+* run grub-mkconfig -o /boot/grub/grub.cfg
+
+Where `$tty_name` should be `ttyS0`, unless virtio serial type is used (i.e.
+if you set the `serial=virtio` backend option, then use `hvc0`)
+
 Development
 ===========
 
