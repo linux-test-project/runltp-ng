@@ -4,6 +4,51 @@ Runltp-ng
 LTP Next-Gen runner is a new version of the `runltp` script used by the
 [Linux Test Project](https://github.com/linux-test-project/ltp).
 
+    Host information
+
+        System: Linux
+        Node: susy
+        Kernel Release: 5.14.21-150400.24.21-default
+        Kernel Version: #1 SMP PREEMPT_DYNAMIC Wed Sep 7 06:51:18 UTC 2022 (974d0aa)
+        Machine Architecture: x86_64
+        Processor: x86_64
+
+        Temporary directory: /tmp/runltp.acer/tmp3t9hwivz
+
+    Connecting to SUT: host
+    Downloading suite: math
+    Starting suite: math
+    abs01: pass
+    atof01: pass
+    float_bessel: pass
+    float_exp_log: pass
+    float_iperb: pass
+    float_power: pass
+    float_trigo: pass
+    fptest01: pass
+    fptest02: pass
+    nextafter01: pass
+
+    Suite Name: math
+    Total Run: 10
+    Elapsed Time: 4.2 seconds
+    Passed Tests: 22
+    Failed Tests: 0
+    Skipped Tests: 0
+    Broken Tests: 0
+    Warnings: 0
+    Kernel Version: Linux 5.14.21-150400.24.21-default #1 SMP PREEMPT_DYNAMIC Wed Sep 7 06:51:18 UTC 2022 (974d0aa)
+    CPU: x86_64
+    Machine Architecture: x86_64
+    RAM: 15569568 kB
+    Swap memory: 2095424 kB
+    Distro: opensuse-leap
+    Distro Version: 15.4
+
+
+    Disconnecting from SUT: host
+
+
 Quickstart
 ==========
 
