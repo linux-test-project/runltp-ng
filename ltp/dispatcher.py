@@ -57,6 +57,9 @@ class Dispatcher:
         """
         stdout = test_data["stdout"]
 
+        # get rid of colors from stdout
+        stdout = re.sub(r'\u001b\[[0-9;]+[a-zA-Z]', '', stdout)
+
         match = re.search(
             r"Summary:\n"
             r"passed\s*(?P<passed>\d+)\n"

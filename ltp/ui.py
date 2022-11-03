@@ -29,15 +29,15 @@ class ConsoleUserInterface:
     CYAN = "\033[1;36m"
     RESET = "\033[2J"
 
-    def __init__(self, colors_rule: str = "default") -> None:
-        self._colors_rule = colors_rule
+    def __init__(self, no_colors: bool = False) -> None:
+        self._no_colors = no_colors
         self._line = ""
 
     def _print(self, msg: str, color: str = None, end: str = "\n"):
         """
         Print a message.
         """
-        if color and self._colors_rule != "none":
+        if color and not self._no_colors:
             print(color + msg + '\033[0m', end=end, flush=True)
         else:
             print(msg, end=end, flush=True)
@@ -97,8 +97,8 @@ class SimpleUserInterface(ConsoleUserInterface):
     Console based user interface without many fancy stuff.
     """
 
-    def __init__(self, colors_rule: str = "default") -> None:
-        super().__init__(colors_rule=colors_rule)
+    def __init__(self, no_colors: bool = False) -> None:
+        super().__init__(no_colors=no_colors)
 
         self._sut_not_responding = False
         self._kernel_panic = False
@@ -246,8 +246,8 @@ class VerboseUserInterface(ConsoleUserInterface):
     Verbose console based user interface.
     """
 
-    def __init__(self, colors_rule: str = "default") -> None:
-        super().__init__(colors_rule=colors_rule)
+    def __init__(self, no_colors: bool = False) -> None:
+        super().__init__(no_colors=no_colors)
 
         self._timed_out = False
         self._buffer = ""
@@ -380,18 +380,7 @@ class VerboseUserInterface(ConsoleUserInterface):
     def test_stdout_line(self, _: Test, line: str) -> None:
         col = ""
 
-        if self._colors_rule == "default":
-            if "TPASS" in line:
-                col = self.GREEN
-            elif "TFAIL" in line:
-                col = self.RED
-            elif "TBROK" in line:
-                col = self.RED
-            elif "TSKIP" in line:
-                col = self.YELLOW
-            elif "TCONF" in line:
-                col = self.CYAN
-            elif "Kernel panic" in line:
-                col = self.RED
+        if "Kernel panic" in line:
+            col = self.RED
 
         self._print(line, color=col)

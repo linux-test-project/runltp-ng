@@ -61,14 +61,14 @@ class Session:
             self,
             suite_timeout: float = 3600,
             exec_timeout: float = 3600,
-            colors_rule: str = "default") -> None:
+            no_colors: bool = False) -> None:
         """
         :param suite_timeout: timeout before stopping testing suite
         :type suite_timeout: float
         :param exec_timeout: timeout before stopping single execution
         :type exec_timeout: float
-        :param ltp_colors: enable LTP colors
-        :type ltp_colors: bool
+        :param no_colors: disable LTP colors
+        :type no_colors: bool
         """
         self._logger = logging.getLogger("ltp.session")
         self._suite_timeout = max(suite_timeout, 0)
@@ -76,7 +76,7 @@ class Session:
         self._sut = None
         self._dispatcher = None
         self._lock_run = threading.Lock()
-        self._colors_rule = colors_rule
+        self._no_colors = no_colors
 
     @staticmethod
     def _setup_debug_log(tmpdir: TempDir) -> None:
@@ -140,10 +140,10 @@ class Session:
         env["TMPDIR"] = tmpdir.root if tmpdir.root else "/tmp"
         env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
 
-        if self._colors_rule == "ltp":
-            env["LTP_COLORIZE_OUTPUT"] = "1"
-        else:
+        if self._no_colors:
             env["LTP_COLORIZE_OUTPUT"] = "0"
+        else:
+            env["LTP_COLORIZE_OUTPUT"] = "1"
 
         sut = None
         timeout = 0.0

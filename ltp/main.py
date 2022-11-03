@@ -175,14 +175,14 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
             parser.error(f"'{skip_tests}' is not a valid regular expression")
 
     if args.verbose:
-        VerboseUserInterface(args.colors_rule)
+        VerboseUserInterface(args.no_colors)
     else:
-        SimpleUserInterface(args.colors_rule)
+        SimpleUserInterface(args.no_colors)
 
     session = Session(
         suite_timeout=args.suite_timeout,
         exec_timeout=args.exec_timeout,
-        colors_rule=args.colors_rule)
+        no_colors=args.no_colors)
 
     tmpdir = TempDir(args.tmp_dir)
 
@@ -209,11 +209,10 @@ def run() -> None:
         action="store_true",
         help="Verbose mode")
     parser.add_argument(
-        "--color",
-        "-C",
-        default="default",
-        dest="colors_rule",
-        help="Type of colors rule we want [none, default, ltp]")
+        "--no-colors",
+        "-n",
+        action="store_true",
+        help="If defined, no colors are shown")
     parser.add_argument(
         "--ltp-dir",
         "-l",
