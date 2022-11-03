@@ -33,6 +33,10 @@ class ConsoleUserInterface:
         self._no_colors = no_colors
         self._line = ""
 
+        ltp.events.register("run_cmd_start", self.run_cmd_start)
+        ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
+        ltp.events.register("run_cmd_stop", self.run_cmd_stop)
+
     def _print(self, msg: str, color: str = None, end: str = "\n"):
         """
         Print a message.
@@ -122,9 +126,6 @@ class SimpleUserInterface(ConsoleUserInterface):
         ltp.events.register("suite_timeout", self.suite_timeout)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
-        ltp.events.register("run_cmd_start", self.run_cmd_start)
-        ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
-        ltp.events.register("run_cmd_stop", self.run_cmd_stop)
 
     def session_started(self, tmpdir: str) -> None:
         uname = platform.uname()

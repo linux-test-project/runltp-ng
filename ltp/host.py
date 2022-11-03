@@ -215,6 +215,8 @@ class HostSUT(SUT):
                     data = self._read_stdout(1024, iobuffer)
                     if not data:
                         break
+
+                    stdout += data
             except subprocess.TimeoutExpired as err:
                 self._proc.kill()
                 raise SUTError(err)
