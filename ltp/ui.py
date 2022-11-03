@@ -41,6 +41,25 @@ class ConsoleUserInterface:
         else:
             print(msg, end=end, flush=True)
 
+    @staticmethod
+    def _user_friendly_duration(duration: float) -> str:
+        """
+        Return a user-friendly duration time from seconds.
+        For example, "3670.234" becomes "1h 0m 10s".
+        """
+        minutes, seconds = divmod(duration, 60)
+        hours, minutes = divmod(minutes, 60)
+        uf_time = ""
+
+        if hours > 0:
+            uf_time = f"{hours:.0f}h {minutes:.0f}m {seconds:.0f}s"
+        elif minutes > 0:
+            uf_time = f"{minutes:.0f}m {seconds:.0f}s"
+        else:
+            uf_time = f"{seconds:.3f}s"
+
+        return uf_time
+
 
 class SimpleUserInterface(ConsoleUserInterface):
     """
@@ -179,9 +198,10 @@ class SimpleUserInterface(ConsoleUserInterface):
 
             if self._kernel_tained:
                 self._print(" | ", end="")
-                self._print("tained", color=self.YELLOW)
-            else:
-                self._print("")
+                self._print("tained", color=self.YELLOW, end="")
+
+            uf_time = self._user_friendly_duration(results.exec_time)
+            self._print(f"  ({uf_time})")
 
         self._sut_not_responding = False
         self._kernel_panic = False
@@ -325,13 +345,27 @@ class VerboseUserInterface(ConsoleUserInterface):
             color=self.RED)
 
     def test_started(self, test: Test) -> None:
-        self._print(f"running {test.name}")
+        self._print("\n===== ", end="")
+        self._print(test.name, color=self.CYAN, end="")
+        self._print(" =====")
+        self._print("command: ", end="")
+        self._print(f"{test.command} {' '.join(test.arguments)}")
 
     def test_completed(self, results: TestResults) -> None:
         if self._timed_out:
             self._print("Test timed out", color=self.RED)
 
         self._timed_out = False
+
+        uf_time = self._user_friendly_duration(results.exec_time)
+
+        self._print(f"\nDuration: {uf_time}\n")
+        self._print("Summary:")
+        self._print(f"passed    {results.passed}")
+        self._print(f"failed    {results.failed}")
+        self._print(f"broken    {results.broken}")
+        self._print(f"skipped   {results.skipped}")
+        self._print(f"warnings  {results.warnings}")
 
     def test_stdout_line(self, _: Test, line: str) -> None:
         col = ""
