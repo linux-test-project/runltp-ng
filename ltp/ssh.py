@@ -293,10 +293,12 @@ class SSHSUT(SUT):
 
                 self._shell = self._client.invoke_shell()
 
-                # hack: wait for prompt. We don't know what the welcome
-                # message will be, so we blindly wait for an amount of time
-                # before proceeding with commands
-                time.sleep(1)
+                # wait for channel ready to be read/wrote
+                t_start = time.time()
+                while not (self._shell.send_ready() and
+                           self._shell.recv_ready()):
+                    if time.time() - t_start >= 600:
+                        raise SUTTimeoutError("Timed out waiting for shell")
 
                 if self._sudo:
                     self._logger.info("Login with root")
