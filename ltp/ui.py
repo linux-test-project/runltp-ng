@@ -31,6 +31,7 @@ class ConsoleUserInterface:
 
     def __init__(self, colors_rule: str = "default") -> None:
         self._colors_rule = colors_rule
+        self._line = ""
 
     def _print(self, msg: str, color: str = None, end: str = "\n"):
         """
@@ -59,6 +60,36 @@ class ConsoleUserInterface:
             uf_time = f"{seconds:.3f}s"
 
         return uf_time
+
+    def run_cmd_start(self, cmd: str) -> None:
+        self._print(f"{cmd}", color=self.CYAN)
+
+    def run_cmd_stdout(self, data: bytes) -> None:
+        data_str = data.decode(encoding="utf-8", errors="replace")
+        data_str.replace('\r', '')
+
+        if len(data_str) == 1:
+            self._line += data_str
+            if data_str == "\n":
+                self._print(self._line, end='')
+                self._line = ""
+        else:
+            lines = data_str.splitlines(True)
+            if len(lines) > 0:
+                for line in lines[:-1]:
+                    self._line += line
+
+                    self._print(self._line, end='')
+                    self._line = ""
+
+                self._line = lines[-1]
+
+            if data_str.endswith('\n') and self._line:
+                self._print(self._line, end='')
+                self._line = ""
+
+    def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
+        self._print(f"\nExit code: {returncode}\n")
 
 
 class SimpleUserInterface(ConsoleUserInterface):
@@ -92,6 +123,7 @@ class SimpleUserInterface(ConsoleUserInterface):
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
         ltp.events.register("run_cmd_start", self.run_cmd_start)
+        ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
         ltp.events.register("run_cmd_stop", self.run_cmd_stop)
 
     def session_started(self, tmpdir: str) -> None:
@@ -208,25 +240,6 @@ class SimpleUserInterface(ConsoleUserInterface):
         self._kernel_tained = None
         self._timed_out = False
 
-    def run_cmd_start(self, cmd: str) -> None:
-        self._print(f"{cmd} ", end="", color=self.CYAN)
-
-    def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
-        self._print(f"(exit_code {returncode}", end="")
-
-        if "TFAIL" in stdout:
-            self._print(" TFAIL", color=self.RED, end="")
-        elif "TSKIP" in stdout:
-            self._print(" TSKIP", color=self.YELLOW, end="")
-        elif "TCONF" in stdout:
-            self._print(" TCONF", color=self.YELLOW, end="")
-        elif "TBROK" in stdout:
-            self._print(" TBROK", color=self.CYAN, end="")
-        elif "TPASS" in stdout:
-            self._print(" TPASS", color=self.GREEN, end="")
-
-        self._print(")")
-
 
 class VerboseUserInterface(ConsoleUserInterface):
     """
@@ -257,9 +270,6 @@ class VerboseUserInterface(ConsoleUserInterface):
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
         ltp.events.register("test_stdout_line", self.test_stdout_line)
-        ltp.events.register("run_cmd_start", self.run_cmd_start)
-        ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
-        ltp.events.register("run_cmd_stop", self.run_cmd_stop)
 
     def session_started(self, tmpdir: str) -> None:
         uname = platform.uname()
@@ -385,33 +395,3 @@ class VerboseUserInterface(ConsoleUserInterface):
                 col = self.RED
 
         self._print(line, color=col)
-
-    def run_cmd_start(self, cmd: str) -> None:
-        self._print(f"{cmd}\n", end="", color=self.CYAN)
-
-    def run_cmd_stdout(self, data: bytes) -> None:
-        data_str = data.decode(encoding="utf-8", errors="replace")
-        data_str.replace('\r', '')
-
-        if len(data_str) == 1:
-            self._line += data_str
-            if data_str == "\n":
-                self._print(self._line, end='')
-                self._line = ""
-        else:
-            lines = data_str.split('\n')
-            for line in lines[:-1]:
-                self._line += line
-
-                self._print(self._line, end='')
-                self._line = ""
-
-            self._line = lines[-1]
-
-            if data_str.endswith('\n') and self._line:
-                self._print(self._line, end='')
-                self._line = ""
-
-    def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
-        msg = f"\nExit code: {returncode}"
-        self._print(msg)
