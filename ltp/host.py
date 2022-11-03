@@ -208,6 +208,13 @@ class HostSUT(SUT):
                             "Timeout during command execution")
 
                 t_end = time.time() - t_start
+
+                # once the process stopped, we still might have some data
+                # inside the stdout buffer
+                while not self._stop:
+                    data = self._read_stdout(1024, iobuffer)
+                    if not data:
+                        break
             except subprocess.TimeoutExpired as err:
                 self._proc.kill()
                 raise SUTError(err)
