@@ -7,6 +7,7 @@
 """
 import os
 import re
+import sys
 import time
 import logging
 import threading
@@ -324,6 +325,26 @@ class SerialDispatcher(Dispatcher):
 
         self._logger.info("SUT rebooted")
 
+    def _write_kmsg(self, test: Test) -> None:
+        """
+        If root, we write test information on /dev/kmsg.
+        """
+        self._logger.info("Writing test information on /dev/kmsg")
+
+        if os.geteuid() != 0:
+            self._logger.info("Can't write on /dev/kmsg from user")
+            return
+
+        with open('/dev/kmsg', 'w', encoding='utf-8') as kmsg:
+            cmd = f"{test.command}"
+            if len(test.arguments) > 0:
+                cmd += ' '
+                cmd += ' '.join(test.arguments)
+
+            kmsg.write(
+                f'{sys.argv[0]}[{os.getpid()}]: '
+                f'starting test {test.name} ({cmd})\n')
+
     def _run_test(self, test: Test) -> TestResults:
         """
         Execute a test and return the results.
@@ -332,6 +353,8 @@ class SerialDispatcher(Dispatcher):
         self._logger.debug(test)
 
         ltp.events.fire("test_started", test)
+
+        self._write_kmsg(test)
 
         args = " ".join(test.arguments)
         cmd = f"{test.command} {args}"
