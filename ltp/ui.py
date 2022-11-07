@@ -6,7 +6,6 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import platform
-import traceback
 import ltp.events
 from ltp.data import Test
 from ltp.data import Suite
@@ -36,6 +35,7 @@ class ConsoleUserInterface:
         ltp.events.register("run_cmd_start", self.run_cmd_start)
         ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
         ltp.events.register("run_cmd_stop", self.run_cmd_stop)
+        ltp.events.register("session_error", self.session_error)
 
     def _print(self, msg: str, color: str = None, end: str = "\n"):
         """
@@ -95,6 +95,9 @@ class ConsoleUserInterface:
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
         self._print(f"\nExit code: {returncode}\n")
 
+    def session_error(self, error: str) -> None:
+        self._print(f"Error: {error}", color=self.RED)
+
 
 class SimpleUserInterface(ConsoleUserInterface):
     """
@@ -111,7 +114,6 @@ class SimpleUserInterface(ConsoleUserInterface):
 
         ltp.events.register("session_started", self.session_started)
         ltp.events.register("session_stopped", self.session_stopped)
-        ltp.events.register("session_error", self.session_error)
         ltp.events.register("sut_start", self.sut_start)
         ltp.events.register("sut_stop", self.sut_stop)
         ltp.events.register("sut_restart", self.sut_restart)
@@ -142,9 +144,6 @@ class SimpleUserInterface(ConsoleUserInterface):
 
     def session_stopped(self) -> None:
         self._print("Session stopped")
-
-    def session_error(self, error: str) -> None:
-        self._print(f"Error: {error}")
 
     def sut_start(self, sut: str) -> None:
         self._print(f"Connecting to SUT: {sut}")
@@ -256,7 +255,6 @@ class VerboseUserInterface(ConsoleUserInterface):
 
         ltp.events.register("session_started", self.session_started)
         ltp.events.register("session_stopped", self.session_stopped)
-        ltp.events.register("session_error", self.session_error)
         ltp.events.register("sut_start", self.sut_start)
         ltp.events.register("sut_stop", self.sut_stop)
         ltp.events.register("sut_restart", self.sut_restart)
@@ -287,15 +285,6 @@ class VerboseUserInterface(ConsoleUserInterface):
 
     def session_stopped(self) -> None:
         self._print("Session stopped")
-
-    def session_error(self, error: str) -> None:
-        message = f"Error: {error}"
-
-        trace = traceback.format_exc()
-        if trace:
-            message += f"\n\n{trace}"
-
-        self._print(message)
 
     def sut_start(self, sut: str) -> None:
         self._print(f"Connecting to SUT: {sut}")
