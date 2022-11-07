@@ -312,7 +312,7 @@ class Session:
             except LTPException as err:
                 self._stop_all(timeout=60)
 
-                self._logger.error("Error: %s", str(err))
+                self._logger.exception(err)
                 ltp.events.fire("session_error", str(err))
 
                 exit_code = self.RC_ERROR
