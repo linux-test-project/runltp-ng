@@ -58,25 +58,26 @@ Some basic commands are the following:
     ./runltp-ng --run-suite syscalls dio
 
     # run syscalls and dio testing suites in qemu VM
-    ./runltp-ng --sut=qemu:image=folder/image.qcow2 \
+    ./runltp-ng --sut qemu:image=folder/image.qcow2 \
         --run-suite syscalls dio
 
     # run syscalls and dio testing suites via SSH
     # NOTE: paramiko and scp packages must be installed in the system
-    ./runltp-ng --sut=ssh:host=myhost.com:user=root:key_file=myhost_id_rsa \
+    ./runltp-ng --sut=ssh:host myhost.com:user=root:key_file=myhost_id_rsa \
         --run-suite syscalls dio
 
 It's possible to run a single command before running testing suites using
 `--run-cmd` option as following:
 
-    runltp-ng --run-cmd=/mnt/testcases/kernel/systemcalls/bpf/bpf_prog02 \
-        --sut=qemu:image=folder/image.qcow2 \
+    runltp-ng --run-cmd /mnt/testcases/kernel/systemcalls/bpf/bpf_prog02 \
+        --sut qemu:image=folder/image.qcow2:virtfs=/home/user/ltp \
+        --ltp-dir /mnt \
         --run-suite syscalls dio
 
 It can be used also to run a single command without running testing suites:
 
-    runltp-ng --run-cmd=/mnt/testcases/kernel/systemcalls/bpf/bpf_prog02 \
-        --sut=qemu:image=folder/image.qcow2
+    runltp-ng --run-cmd /mnt/testcases/kernel/systemcalls/bpf/bpf_prog02 \
+        --sut qemu:image=folder/image.qcow2
 
 Every session has a temporary directory which can be found in
 `/<TMPDIR>/runltp-of<username>`. Inside this folder there's a symlink
@@ -88,9 +89,9 @@ Setting up console for Qemu
 
 To enable console on a tty device for a VM do:
 
-* open /etc/default/grub
+* open `/etc/default/grub`
 * add `console=$tty_name, console=tty0` to `GRUB_CMDLINE_LINUX`
-* run grub-mkconfig -o /boot/grub/grub.cfg
+* run `grub-mkconfig -o /boot/grub/grub.cfg`
 
 Where `$tty_name` should be `ttyS0`, unless virtio serial type is used (i.e.
 if you set the `serial=virtio` backend option, then use `hvc0`)
