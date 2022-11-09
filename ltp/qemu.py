@@ -480,8 +480,11 @@ class QemuSUT(SUT):
             try:
                 self._wait_for("login:", timeout, iobuffer)
                 self._write_stdin("root\n")
-                self._wait_for("Password:", 5, iobuffer)
-                self._write_stdin(f"{self._password}\n")
+
+                if self._password:
+                    self._wait_for("Password:", 5, iobuffer)
+                    self._write_stdin(f"{self._password}\n")
+
                 self._wait_for("#", 5, iobuffer)
 
                 ret = self.run_command(
