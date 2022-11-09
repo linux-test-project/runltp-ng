@@ -36,7 +36,7 @@ def _from_params_to_config(params: list) -> dict:
             raise argparse.ArgumentTypeError(
                 f"Missing '=' assignment in '{param}' parameter")
 
-        data = param.split('=')
+        data = param.split('=', 1)
         key = data[0]
         value = data[1]
 

@@ -135,7 +135,7 @@ class QemuSUT(SUT):
                 "readonly=on")
 
         if self._opts:
-            params.extend(self._opts)
+            params.append(self._opts)
 
         cmd = f"{self._qemu_cmd} {' '.join(params)}"
 
