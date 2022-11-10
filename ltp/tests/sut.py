@@ -21,24 +21,7 @@ class Printer:
 
     def write(self, data):
         data_str = data.decode(encoding="utf-8", errors="replace")
-
-        if len(data_str) == 1:
-            self._line += data_str
-            if data_str == "\n":
-                self._logger.info(self._line[:-1])
-                self._line = ""
-        else:
-            lines = data_str.split('\n')
-            for line in lines[:-1]:
-                self._line += line
-                self._logger.info(self._line)
-                self._line = ""
-
-            self._line = lines[-1]
-
-            if data_str.endswith('\n') and self._line:
-                self._logger.info(self._line)
-                self._line = ""
+        print(data_str, end="")
 
     def flush(self):
         pass

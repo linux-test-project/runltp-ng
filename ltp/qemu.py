@@ -34,16 +34,15 @@ class QemuSUT(SUT):
 
     def __init__(self) -> None:
         self._logger = logging.getLogger("ltp.qemu")
+        self._comm_lock = threading.Lock()
+        self._cmd_lock = threading.Lock()
+        self._fetch_lock = threading.Lock()
         self._tmpdir = None
         self._env = None
         self._cwd = None
         self._proc = None
         self._poller = None
         self._stop = False
-        self._comm_lock = threading.Lock()
-        self._cmd_lock = threading.Lock()
-        self._fetch_lock = threading.Lock()
-        self._ps1 = f"#{self._generate_string()}#"
         self._logged_in = False
         self._last_pos = 0
         self._image = None
@@ -215,10 +214,9 @@ class QemuSUT(SUT):
         if not self.is_running:
             raise SUTError("SUT is not running")
 
-        ret = self.run_command("test .", timeout=1)
-        reply_t = ret["exec_time"]
+        _, _, exec_time = self._exec("test .", 1, None)
 
-        return reply_t
+        return exec_time
 
     def get_info(self) -> dict:
         self._logger.info("Reading SUT information")
@@ -291,7 +289,10 @@ class QemuSUT(SUT):
         panic = False
 
         while not stdout.endswith(message):
-            events = self._poller.poll(0.5)
+            events = self._poller.poll(0.1)
+
+            if not events and self._stop:
+                break
 
             if not events and panic:
                 raise KernelPanicError()
@@ -314,24 +315,57 @@ class QemuSUT(SUT):
             if self._proc.poll() is not None:
                 break
 
+        if panic:
+            # if we ended before raising Kernel panic, we raise the exception
+            raise KernelPanicError()
+
         return stdout
 
-    def _exec(self, command: str, timeout: float, iobuffer: IOBuffer) -> str:
+    def _exec(self, command: str, timeout: float, iobuffer: IOBuffer) -> set:
         """
-        Execute a command and wait for command prompt.
+        Execute a command and return set(stdout, retcode, exec_time).
         """
         self._logger.debug("Execute (timeout %f): %s", timeout, repr(command))
 
-        self._write_stdin(command)
-        self._wait_for(command, 5, iobuffer)  # ignore echo
+        code = self._generate_string()
 
-        stdout = self._wait_for(self._ps1, timeout, iobuffer)
+        msg = f"echo $?-{code}\n"
+        if command and command.rstrip():
+            msg = f"{command};" + msg
 
-        # we don't want to keep prompt string at the end of the stdout
-        if stdout and stdout.endswith(self._ps1):
-            stdout = stdout[:-len(self._ps1)]
+        self._logger.info("Sending %s", repr(msg))
 
-        return stdout
+        t_start = time.time()
+
+        self._write_stdin(f"{command}; echo $?-{code}\n")
+        stdout = self._wait_for(code, timeout, iobuffer)
+
+        exec_time = time.time() - t_start
+
+        retcode = -1
+
+        if not self._stop:
+            if stdout and stdout.rstrip():
+                match = re.search(f"(?P<retcode>\\d+)-{code}", stdout)
+                if not match and not self._stop:
+                    raise SUTError(
+                        f"Can't read return code from reply {repr(stdout)}")
+
+                # first character is '\n'
+                stdout = stdout[1:match.start()]
+
+                try:
+                    retcode = int(match.group("retcode"))
+                except TypeError:
+                    pass
+
+        self._logger.debug(
+            "stdout=%s, retcode=%d, exec_time=%d",
+            repr(stdout),
+            retcode,
+            exec_time)
+
+        return stdout, retcode, exec_time
 
     # pylint: disable=too-many-branches
     def stop(
@@ -377,7 +411,6 @@ class QemuSUT(SUT):
             if self._logged_in:
                 self._logger.info("Poweroff virtual machine")
 
-                self._exec("\n", 5, iobuffer)
                 self._write_stdin("poweroff\n")
 
                 start_t = time.time()
@@ -487,36 +520,31 @@ class QemuSUT(SUT):
 
                 self._wait_for("#", 5, iobuffer)
 
-                ret = self.run_command(
-                    f"export PS1={self._ps1}",
-                    timeout=5,
-                    iobuffer=iobuffer)
-                if ret["returncode"] != 0:
+                self._write_stdin("stty -echo; stty cols 1024\n")
+                self._wait_for("#", 5, None)
+
+                _, retcode, _ = self._exec("export PS1=''", 5, None)
+                if retcode != 0:
                     raise SUTError("Can't setup prompt string")
 
                 if self._virtfs:
-                    ret = self.run_command(
+                    _, retcode, _ = self._exec(
                         "mount -t 9p -o trans=virtio host0 /mnt",
-                        timeout=10,
-                        iobuffer=iobuffer)
-                    if ret["returncode"] != 0:
+                        10, None)
+                    if retcode != 0:
                         raise SUTError("Failed to mount virtfs")
 
                 if self._cwd:
-                    ret = self.run_command(
-                        f"cd {self._cwd}",
-                        timeout=5,
-                        iobuffer=iobuffer)
-                    if ret["returncode"] != 0:
+                    _, retcode, _ = self._exec(f"cd {self._cwd}", 5, None)
+                    if retcode != 0:
                         raise SUTError("Can't setup current working directory")
 
                 if self._env:
                     for key, value in self._env.items():
-                        ret = self.run_command(
+                        _, retcode, _ = self._exec(
                             f"export {key}={value}",
-                            timeout=5,
-                            iobuffer=iobuffer)
-                        if ret["returncode"] != 0:
+                            5, None)
+                        if retcode != 0:
                             raise SUTError(f"Can't setup env {key}={value}")
 
                 self._logged_in = True
@@ -545,35 +573,17 @@ class QemuSUT(SUT):
         with self._cmd_lock:
             self._logger.info("Running command: %s", command)
 
-            code = self._generate_string()
-
-            # send command
-            t_start = time.time()
-            stdout = self._exec(f"{command}\n", timeout, iobuffer)
-            t_end = time.time() - t_start
-
-            # read return code
-            reply = self._exec(f"echo $?-{code}\n", 5, iobuffer)
-
-            retcode = -1
-
-            if reply:
-                match = re.search(f"^(?P<retcode>\\d+)-{code}", reply)
-                if not match:
-                    raise SUTError(
-                        f"Can't read return code from reply {repr(reply)}")
-
-                try:
-                    retcode = int(match.group("retcode"))
-                except TypeError:
-                    pass
+            stdout, retcode, exec_time = self._exec(
+                f"{command}",
+                timeout,
+                iobuffer)
 
             ret = {
                 "command": command,
                 "timeout": timeout,
                 "returncode": retcode,
                 "stdout": stdout,
-                "exec_time": t_end,
+                "exec_time": exec_time,
             }
 
             self._logger.debug(ret)
@@ -593,18 +603,16 @@ class QemuSUT(SUT):
         with self._fetch_lock:
             self._logger.info("Downloading %s", target_path)
 
-            ret = self.run_command(f'test -f {target_path}', timeout=1)
-            if ret["returncode"] != 0:
+            _, retcode, _ = self._exec(f'test -f {target_path}', 1, None)
+            if retcode != 0:
                 raise SUTError(f"'{target_path}' doesn't exist")
 
             transport_dev, transport_path = self._get_transport()
 
-            ret = self.run_command(
+            stdout, retcode, _ = self._exec(
                 f"cat {target_path} > {transport_dev}",
-                timeout=timeout)
-
-            retcode = ret["returncode"]
-            stdout = ret["stdout"]
+                timeout,
+                None)
 
             if retcode not in [0, signal.SIGHUP, signal.SIGKILL]:
                 raise SUTError(f"Can't send file to {transport_dev}: {stdout}")

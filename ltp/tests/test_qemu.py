@@ -15,7 +15,7 @@ TEST_QEMU_PASSWORD = os.environ.get("TEST_QEMU_PASSWORD", None)
 
 @pytest.mark.qemu
 @pytest.mark.skipif(TEST_QEMU_IMAGE is None, reason="TEST_QEMU_IMAGE is not defined")
-@pytest.mark.skipif(TEST_QEMU_PASSWORD is None, reason="TEST_QEMU_IMAGE is not defined")
+@pytest.mark.skipif(TEST_QEMU_PASSWORD is None, reason="TEST_QEMU_PASSWORD is not defined")
 class _TestQemuSUT(_TestSUT):
     """
     Test Qemu SUT implementation.
@@ -25,16 +25,22 @@ class _TestQemuSUT(_TestSUT):
         """
         Test kernel panic recognition.
         """
+        iobuff = Printer()
+
         try:
-            sut.communicate(iobuffer=Printer())
+            sut.communicate(iobuffer=iobuff)
+            sut.run_command(
+                "echo 'Kernel panic\nThis is a generic message' > /tmp/panic.txt",
+                timeout=2,
+                iobuffer=iobuff)
 
             with pytest.raises(KernelPanicError):
                 sut.run_command(
-                    "echo 'Kernel panic\nThis is a generic message'",
+                    "cat /tmp/panic.txt",
                     timeout=10,
-                    iobuffer=Printer())
+                    iobuffer=iobuff)
         finally:
-            sut.stop(iobuffer=Printer())
+            sut.stop(iobuffer=iobuff)
 
 
 class TestQemuSUTISA(_TestQemuSUT):
