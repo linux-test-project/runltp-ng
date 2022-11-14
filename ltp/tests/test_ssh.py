@@ -28,7 +28,8 @@ class _TestSSHSUT(_TestSUT):
 
     @pytest.fixture
     def sut(self, config):
-        sut = SSHSUT(**config)
+        sut = SSHSUT()
+        sut.setup(**config)
 
         yield sut
 
@@ -42,7 +43,8 @@ class _TestSSHSUT(_TestSUT):
         kwargs = dict(cwd="/etc")
         kwargs.update(config)
 
-        sut = SSHSUT(**kwargs)
+        sut = SSHSUT()
+        sut.setup(**kwargs)
         sut.communicate()
 
         ret = sut.run_command("test -f fstab", timeout=1)
@@ -56,7 +58,8 @@ class _TestSSHSUT(_TestSUT):
             env=dict(FILE="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
         kwargs.update(config)
 
-        sut = SSHSUT(**kwargs)
+        sut = SSHSUT()
+        sut.setup(**kwargs)
         sut.communicate()
 
         ret = sut.run_command("echo -n $FILE", timeout=1)
@@ -70,7 +73,8 @@ class _TestSSHSUT(_TestSUT):
         kwargs = dict(reset_cmd="echo ciao")
         kwargs.update(config)
 
-        sut = SSHSUT(**kwargs)
+        sut = SSHSUT()
+        sut.setup(**kwargs)
         sut.communicate()
 
         class MyBuffer(IOBuffer):
@@ -97,7 +101,8 @@ class _TestSSHSUT(_TestSUT):
         kwargs = dict(sudo=enable)
         kwargs.update(config)
 
-        sut = SSHSUT(**kwargs)
+        sut = SSHSUT()
+        sut.setup(**kwargs)
         sut.communicate()
         ret = sut.run_command("echo -n $UID", timeout=1)
 
