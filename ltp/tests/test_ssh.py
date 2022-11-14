@@ -34,7 +34,7 @@ class _TestSSHSUT(_TestSUT):
         yield sut
 
         if sut.is_running:
-            sut.stop()
+            sut.force_stop()
 
     def test_cwd(self, config):
         """

@@ -27,20 +27,17 @@ class _TestQemuSUT(_TestSUT):
         """
         iobuff = Printer()
 
-        try:
-            sut.communicate(iobuffer=iobuff)
-            sut.run_command(
-                "echo 'Kernel panic\nThis is a generic message' > /tmp/panic.txt",
-                timeout=2,
-                iobuffer=iobuff)
+        sut.communicate(iobuffer=iobuff)
+        sut.run_command(
+            "echo 'Kernel panic\nThis is a generic message' > /tmp/panic.txt",
+            timeout=2,
+            iobuffer=iobuff)
 
-            with pytest.raises(KernelPanicError):
-                sut.run_command(
-                    "cat /tmp/panic.txt",
-                    timeout=10,
-                    iobuffer=iobuff)
-        finally:
-            sut.stop(iobuffer=iobuff)
+        with pytest.raises(KernelPanicError):
+            sut.run_command(
+                "cat /tmp/panic.txt",
+                timeout=10,
+                iobuffer=iobuff)
 
 
 class TestQemuSUTISA(_TestQemuSUT):
@@ -60,7 +57,7 @@ class TestQemuSUTISA(_TestQemuSUT):
         yield runner
 
         if runner.is_running:
-            runner.stop()
+            runner.force_stop()
 
 
 class TestQemuSUTVirtIO(_TestQemuSUT):
@@ -80,4 +77,4 @@ class TestQemuSUTVirtIO(_TestQemuSUT):
         yield runner
 
         if runner.is_running:
-            runner.stop()
+            runner.force_stop()

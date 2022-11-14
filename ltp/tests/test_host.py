@@ -14,7 +14,7 @@ def sut():
     yield sut
 
     if sut.is_running:
-        sut.stop()
+        sut.force_stop()
 
 
 class TestHostSUT(_TestSUT):
