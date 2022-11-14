@@ -18,6 +18,7 @@ from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
 from ltp.export import JSONExporter
+from ltp.utils import Timeout
 
 
 class SessionError(LTPException):
@@ -231,14 +232,17 @@ class Session:
 
         self._logger.info("Stopping session")
 
-        self._stop_all(timeout=timeout)
-        ltp.events.fire("session_stopped")
+        with Timeout(timeout) as timer:
+            self._stop_all(timeout=timeout)
+            ltp.events.fire("session_stopped")
 
-        t_start = time.time()
-        while self._lock_run.locked():
-            time.sleep(0.05)
-            if time.time() - t_start >= timeout:
-                raise SessionError("Timeout when stopping session")
+            timer.check(err_msg="Timeout when stopping session")
+
+            while self._lock_run.locked():
+                time.sleep(0.05)
+                timer.check(
+                    err_msg="Timeout when stopping session",
+                    exc=SessionError)
 
         self._logger.info("Session stopped")
 

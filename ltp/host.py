@@ -13,9 +13,11 @@ import logging
 import threading
 import subprocess
 import ltp.sut
-from ltp.sut import SUT, IOBuffer
+from ltp.sut import SUT
+from ltp.sut import IOBuffer
 from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
+from ltp.utils import Timeout
 
 
 class HostSUT(SUT):
@@ -107,21 +109,12 @@ class HostSUT(SUT):
             self._logger.info("Terminating process with %s", sig)
             self._proc.send_signal(sig)
 
-        t_secs = max(timeout, 0)
+        with Timeout(timeout) as timer:
+            while self._fetch_lock.locked():
+                timer.check(err_msg="Timeout waiting for command to stop")
 
-        t_start = time.time()
-        while self._fetch_lock.locked():
-            time.sleep(0.05)
-            if time.time() - t_start >= t_secs:
-                raise SUTTimeoutError(
-                    "Timeout waiting for command to stop")
-
-        t_start = time.time()
-        while self._cmd_lock.locked():
-            time.sleep(0.05)
-            if time.time() - t_start >= t_secs:
-                raise SUTTimeoutError(
-                    "Timeout waiting for command to stop")
+            while self._cmd_lock.locked():
+                timer.check(err_msg="Timeout waiting for command to stop")
 
         self._logger.info("Process terminated")
 
@@ -199,22 +192,23 @@ class HostSUT(SUT):
                     select.POLLHUP |
                     select.POLLERR)
 
-                while True:
-                    events = poller.poll(1)
-                    for fdesc, _ in events:
-                        if fdesc != self._proc.stdout.fileno():
+                with Timeout(timeout) as timer:
+                    while True:
+                        events = poller.poll(0.1)
+                        for fdesc, _ in events:
+                            if fdesc != self._proc.stdout.fileno():
+                                break
+
+                            data = self._read_stdout(1024, iobuffer)
+                            if data:
+                                stdout += data
+
+                        if self._proc.poll() is not None:
                             break
 
-                        data = self._read_stdout(1024, iobuffer)
-                        if data:
-                            stdout += data
-
-                    if self._proc.poll() is not None:
-                        break
-
-                    if time.time() - t_start >= t_secs:
-                        raise SUTTimeoutError(
-                            "Timeout during command execution")
+                        timer.check(
+                            err_msg="Timeout during command execution",
+                            exc=SUTTimeoutError)
 
                 t_end = time.time() - t_start
 
@@ -262,23 +256,18 @@ class HostSUT(SUT):
             retdata = bytes()
 
             try:
-                start_t = time.time()
-
-                with open(target_path, 'rb') as ftarget:
-                    data = ftarget.read(1024)
-
-                    while data != b'' and not self._stop:
-                        retdata += data
+                with Timeout(timeout) as timer:
+                    with open(target_path, 'rb') as ftarget:
                         data = ftarget.read(1024)
 
-                        if time.time() - start_t >= timeout:
-                            self._logger.info(
-                                "Transfer timed out after %d seconds",
-                                timeout)
+                        while data != b'' and not self._stop:
+                            retdata += data
+                            data = ftarget.read(1024)
 
-                            raise SUTTimeoutError(
-                                f"Timeout when transfer {target_path}"
-                                f" (timeout={timeout}):")
+                            timer.check(
+                                err_msg=f"Timeout when transfer {target_path}"
+                                f" (timeout={timeout})",
+                                exc=SUTTimeoutError)
             except IOError as err:
                 raise SUTError(err)
             finally:

@@ -22,6 +22,7 @@ from ltp.data import Test
 from ltp.data import Suite
 from ltp.results import TestResults
 from ltp.results import SuiteResults
+from ltp.utils import Timeout
 
 
 class DispatcherError(LTPException):
@@ -266,13 +267,12 @@ class SerialDispatcher(Dispatcher):
         self._stop = True
 
         try:
-            t_start = time.time()
-            t_secs = max(timeout, 0)
-
-            while self.is_running:
-                time.sleep(0.05)
-                if time.time() - t_start >= t_secs:
-                    raise DispatcherError("Timeout when stopping dispatcher")
+            with Timeout(timeout) as timer:
+                while self.is_running:
+                    time.sleep(0.05)
+                    timer.check(
+                        err_msg="Timeout when stopping dispatcher",
+                        exc=DispatcherError)
         finally:
             self._stop = False
 

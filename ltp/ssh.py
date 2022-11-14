@@ -22,6 +22,7 @@ from ltp.sut import IOBuffer
 from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
 from ltp.sut import KernelPanicError
+from ltp.utils import Timeout
 
 try:
     from paramiko import SSHClient
@@ -180,8 +181,6 @@ class SSHSUT(SUT):
                 raise SUTError(err)
 
         stdout = ""
-        t_secs = max(timeout, 0)
-        t_start = time.time()
         panic = False
 
         # register stdout poller
@@ -194,34 +193,34 @@ class SSHSUT(SUT):
             select.POLLHUP |
             select.POLLERR)
 
-        while not stdout.endswith(self._ps1):
-            if self._shell is None:
-                # this can happen during stop()
-                break
-
-            events = poller.poll(1)
-
-            for fdesc, _ in events:
-                if fdesc != stdout_fd:
+        with Timeout(timeout) as timer:
+            while not stdout.endswith(self._ps1):
+                if self._shell is None:
+                    # this can happen during stop()
                     break
 
-                if self._shell is not None and self._shell.recv_ready():
-                    data = self._shell.recv(512)
-                    sdata = data.decode(encoding="utf-8", errors="ignore")
-                    stdout += sdata.replace("\r", "")
+                events = poller.poll(1)
 
-                    # write on stdout buffers
-                    if iobuffer:
-                        iobuffer.write(data)
-                        iobuffer.flush()
+                for fdesc, _ in events:
+                    if fdesc != stdout_fd:
+                        break
 
-                    if "Kernel panic" in stdout:
-                        panic = True
+                    if self._shell is not None and self._shell.recv_ready():
+                        data = self._shell.recv(512)
+                        sdata = data.decode(encoding="utf-8", errors="ignore")
+                        stdout += sdata.replace("\r", "")
 
-                    if time.time() - t_start >= t_secs:
-                        raise SUTTimeoutError(
-                            f"Timed out waiting for {repr(self._ps1)}")
+                        # write on stdout buffers
+                        if iobuffer:
+                            iobuffer.write(data)
+                            iobuffer.flush()
 
+                        if "Kernel panic" in stdout:
+                            panic = True
+
+                        timer.check(
+                            err_msg=f"Timed out waiting for {repr(self._ps1)}",
+                            exc=SUTTimeoutError)
         if panic:
             raise KernelPanicError()
 
@@ -300,16 +299,18 @@ class SSHSUT(SUT):
 
                 self._shell = self._client.invoke_shell()
 
-                # wait for channel ready to be read/wrote
-                t_start = time.time()
-                while not (self._shell.send_ready() and
-                           self._shell.recv_ready()):
-                    if time.time() - t_start >= 600:
-                        raise SUTTimeoutError("Timed out waiting for shell")
+                with Timeout(600) as timer:
+                    # wait for channel ready to be read/wrote
+                    while not (self._shell.send_ready() and
+                               self._shell.recv_ready()):
+                        timer.check(
+                            err_msg="Timed out waiting for shell",
+                            exc=SUTTimeoutError)
 
                 if self._sudo:
                     self._logger.info("Login with root")
-                    self._shell.send("sudo /bin/sh\n".encode(encoding="utf-8"))
+                    self._shell.send(
+                        "sudo /bin/sh\n".encode(encoding="utf-8"))
                     time.sleep(0.2)
 
                 ret = self.run_command(
@@ -325,7 +326,8 @@ class SSHSUT(SUT):
                         timeout=5,
                         iobuffer=iobuffer)
                     if ret["returncode"] != 0:
-                        raise SUTError("Can't setup current working directory")
+                        raise SUTError(
+                            "Can't setup current working directory")
 
                 if self._env:
                     for key, value in self._env.items():
@@ -334,7 +336,8 @@ class SSHSUT(SUT):
                             timeout=5,
                             iobuffer=iobuffer)
                         if ret["returncode"] != 0:
-                            raise SUTError(f"Can't setup env {key}={value}")
+                            raise SUTError(
+                                f"Can't setup env {key}={value}")
 
                 self._logger.info("Connected to host")
             except SSHException as err:
@@ -367,33 +370,29 @@ class SSHSUT(SUT):
                 select.POLLHUP |
                 select.POLLERR)
 
-            t_secs = max(timeout, 0)
-            t_start = time.time()
+            with Timeout(timeout) as timer:
+                while True:
+                    events = poller.poll(0.2)
+                    for fdesc, _ in events:
+                        if fdesc != stdout:
+                            break
 
-            while True:
-                events = poller.poll(0.2)
-                for fdesc, _ in events:
-                    if fdesc != stdout:
+                        data = os.read(stdout, 1024)
+                        if iobuffer:
+                            iobuffer.write(data)
+                            iobuffer.flush()
+
+                    if proc.poll() is not None:
                         break
 
-                    data = os.read(stdout, 1024)
-                    if iobuffer:
-                        iobuffer.write(data)
-                        iobuffer.flush()
-
-                if proc.poll() is not None:
-                    break
-
-                if time.time() - t_start >= t_secs:
-                    raise SUTTimeoutError(
-                        "Timeout during reset command execution")
+                    timer.check(
+                        err_msg="Timeout during reset command execution",
+                        exc=SUTTimeoutError)
 
             self._logger.info("Reset command has been executed")
 
     def stop(self, timeout: float = 30, iobuffer: IOBuffer = None) -> None:
         self._stop = True
-
-        t_secs = max(timeout, 0)
 
         try:
             # we don't need to handle run_command here, because when command
@@ -404,11 +403,11 @@ class SSHSUT(SUT):
             if self._fetch_lock.locked():
                 self._logger.info("Stop fetching file")
 
-                start_t = time.time()
-                while self._fetch_lock.locked():
-                    time.sleep(0.05)
-                    if time.time() - start_t >= t_secs:
-                        raise SUTTimeoutError("Timed out during stop")
+                with Timeout(timeout) as timer:
+                    while self._fetch_lock.locked():
+                        timer.check(
+                            err_msg="Timed out during stop",
+                            exc=SUTTimeoutError)
 
             if self._client:
                 self._logger.info("Closing connection")

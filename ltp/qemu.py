@@ -22,6 +22,8 @@ from ltp.sut import IOBuffer
 from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
 from ltp.sut import KernelPanicError
+from ltp.utils import Timeout
+from ltp.utils import LTPTimeoutError
 
 
 # pylint: disable=too-many-instance-attributes
@@ -283,37 +285,36 @@ class QemuSUT(SUT):
         if not self.is_running:
             return None
 
-        t_secs = max(timeout, 0)
-        t_start = time.time()
         stdout = ""
         panic = False
 
-        while not stdout.endswith(message):
-            events = self._poller.poll(0.1)
+        with Timeout(timeout) as timer:
+            while not stdout.endswith(message):
+                events = self._poller.poll(0.1)
 
-            if not events and self._stop:
-                break
+                if not events and self._stop:
+                    break
 
-            if not events and panic:
-                raise KernelPanicError()
+                if not events and panic:
+                    raise KernelPanicError()
 
-            for fdesc, _ in events:
-                if fdesc != self._proc.stdout.fileno():
-                    continue
+                for fdesc, _ in events:
+                    if fdesc != self._proc.stdout.fileno():
+                        continue
 
-                data = self._read_stdout(1, iobuffer)
-                if data:
-                    stdout += data
+                    data = self._read_stdout(1, iobuffer)
+                    if data:
+                        stdout += data
 
-                if stdout.endswith("Kernel panic"):
-                    panic = True
+                    if stdout.endswith("Kernel panic"):
+                        panic = True
 
-            if time.time() - t_start >= t_secs:
-                raise SUTTimeoutError(
-                    f"Timed out waiting for {repr(message)}")
+                timer.check(
+                    err_msg=f"Timed out waiting for {repr(message)}",
+                    exc=SUTTimeoutError)
 
-            if self._proc.poll() is not None:
-                break
+                if self._proc.poll() is not None:
+                    break
 
         if panic:
             # if we ended before raising Kernel panic, we raise the exception
@@ -368,6 +369,8 @@ class QemuSUT(SUT):
         return stdout, retcode, exec_time
 
     # pylint: disable=too-many-branches
+    # some pylint versions don't recognize threading::Lock::locked
+    # pylint: disable=no-member
     def stop(
             self,
             timeout: float = 30,
@@ -378,75 +381,59 @@ class QemuSUT(SUT):
         self._logger.info("Shutting down virtual machine")
         self._stop = True
 
-        t_secs = max(timeout, 0)
+        with Timeout(timeout) as timer:
+            try:
+                # stop command first
+                if self._cmd_lock.locked() or self._fetch_lock.locked():
+                    self._logger.info("Stop running command")
 
-        # some pylint versions don't recognize threading::Lock::locked
-        # pylint: disable=no-member
+                    # send interrupt character (equivalent of CTRL+C)
+                    self._write_stdin('\x03')
 
-        try:
-            # stop command first
-            if self._cmd_lock.locked():
-                self._logger.info("Stop running command")
-
-                # send interrupt character (equivalent of CTRL+C)
-                self._write_stdin('\x03')
-
-                start_t = time.time()
+                # wait until command ends
                 while self._cmd_lock.locked():
-                    time.sleep(0.05)
-                    if time.time() - start_t >= t_secs:
-                        raise SUTTimeoutError("Timed out during stop")
+                    timer.check(err_msg="Timed out during stop")
 
-            # wait until fetching file is ended
-            if self._fetch_lock.locked():
-                self._logger.info("Stop fetching file")
-
-                start_t = time.time()
+                # wait until fetching file is ended
                 while self._fetch_lock.locked():
-                    time.sleep(0.05)
-                    if time.time() - start_t >= t_secs:
-                        raise SUTTimeoutError("Timed out during stop")
+                    timer.check(err_msg="Timed out during stop")
 
-            # logged in -> poweroff
-            if self._logged_in:
-                self._logger.info("Poweroff virtual machine")
+                # logged in -> poweroff
+                if self._logged_in:
+                    self._logger.info("Poweroff virtual machine")
 
-                self._write_stdin("poweroff\n")
+                    self._write_stdin("poweroff\n")
 
-                start_t = time.time()
-                while self._proc.poll() is None:
-                    events = self._poller.poll(1)
-                    for fdesc, _ in events:
-                        if fdesc != self._proc.stdout.fileno():
-                            continue
+                    while self._proc.poll() is None:
+                        events = self._poller.poll(1)
+                        for fdesc, _ in events:
+                            if fdesc != self._proc.stdout.fileno():
+                                continue
 
-                        self._read_stdout(1, iobuffer)
+                            self._read_stdout(1, iobuffer)
 
-                    if time.time() - start_t >= t_secs:
-                        break
+                        try:
+                            timer.check()
+                        except LTPTimeoutError:
+                            # let process to be killed
+                            pass
 
-            # still running -> stop process
-            if self._proc.poll() is None:
-                self._logger.info("Killing virtual machine process")
+                # still running -> stop process
+                if self._proc.poll() is None:
+                    self._logger.info("Killing virtual machine process")
 
-                self._proc.send_signal(signal.SIGHUP)
+                    self._proc.send_signal(signal.SIGHUP)
 
-            # wait communicate() to end
-            if self._comm_lock.locked():
-                start_t = time.time()
+                # wait communicate() to end
                 while self._comm_lock.locked():
-                    time.sleep(0.05)
-                    if time.time() - start_t >= t_secs:
-                        raise SUTTimeoutError("Timed out during stop")
+                    timer.check(err_msg="Timed out during stop")
 
-            # wait for process to end
-            start_t = time.time()
-            while self._proc.poll() is None:
-                time.sleep(0.05)
-                if time.time() - start_t >= t_secs:
-                    raise SUTTimeoutError("Timed out during stop")
-        finally:
-            self._stop = False
+                # wait for process to end
+                while self._proc.poll() is None:
+                    timer.check(err_msg="Timed out during stop")
+
+            finally:
+                self._stop = False
 
     def force_stop(
             self,
@@ -458,23 +445,27 @@ class QemuSUT(SUT):
         self._logger.info("Shutting down virtual machine")
         self._stop = True
 
-        t_secs = max(timeout, 0)
+        with Timeout(timeout) as timer:
+            try:
+                # still running -> stop process
+                if self._proc.poll() is None:
+                    self._logger.info("Killing virtual machine process")
 
-        try:
-            # still running -> stop process
-            if self._proc.poll() is None:
-                self._logger.info("Killing virtual machine process")
+                    self._proc.send_signal(signal.SIGKILL)
 
-                self._proc.send_signal(signal.SIGKILL)
+                    # stop command first
+                    while self._cmd_lock.locked():
+                        timer.check(err_msg="Timed out during stop")
 
-                # wait for process to end
-                start_t = time.time()
-                while self._proc.poll() is None:
-                    time.sleep(0.05)
-                    if time.time() - start_t >= t_secs:
-                        raise SUTTimeoutError("Timed out during stop")
-        finally:
-            self._stop = False
+                    # wait communicate() to end
+                    while self._comm_lock.locked():
+                        timer.check(err_msg="Timed out during stop")
+
+                    # wait for process to end
+                    while self._proc.poll() is None:
+                        timer.check(err_msg="Timed out during stop")
+            finally:
+                self._stop = False
 
     def communicate(
             self,
@@ -614,34 +605,32 @@ class QemuSUT(SUT):
                 timeout,
                 None)
 
+            if self._stop:
+                return bytes()
+
             if retcode not in [0, signal.SIGHUP, signal.SIGKILL]:
-                raise SUTError(f"Can't send file to {transport_dev}: {stdout}")
+                raise SUTError(
+                    f"Can't send file to {transport_dev}: {stdout}")
 
             # read back data and send it to the local file path
             file_size = os.path.getsize(transport_path)
-            start_t = time.time()
 
             retdata = bytes()
 
-            with open(transport_path, "rb") as transport:
-                while not self._stop and self._last_pos < file_size:
-                    if time.time() - start_t >= timeout:
-                        self._logger.info(
-                            "Transfer timed out after %d seconds",
-                            timeout)
+            with Timeout(timeout) as timer:
+                with open(transport_path, "rb") as transport:
+                    while not self._stop and self._last_pos < file_size:
+                        timer.check(
+                            err_msg=f"Timed out during transfer "
+                            f"{target_path} (timeout={timeout})",
+                            exc=SUTTimeoutError)
 
-                        raise SUTTimeoutError(
-                            f"Timed out during transfer {target_path}"
-                            f"(timeout={timeout})")
+                        transport.seek(self._last_pos)
+                        data = transport.read(4096)
 
-                    time.sleep(0.05)
+                        retdata += data
 
-                    transport.seek(self._last_pos)
-                    data = transport.read(4096)
-
-                    retdata += data
-
-                    self._last_pos = transport.tell()
+                        self._last_pos = transport.tell()
 
             self._logger.info("File downloaded")
 
