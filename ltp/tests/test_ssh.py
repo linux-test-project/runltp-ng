@@ -104,12 +104,12 @@ class _TestSSHSUT(_TestSUT):
         sut = SSHSUT()
         sut.setup(**kwargs)
         sut.communicate()
-        ret = sut.run_command("echo -n $UID", timeout=1)
+        ret = sut.run_command("whoami", timeout=1)
 
         if enable == "1":
-            assert ret["stdout"] == "0"
+            assert ret["stdout"] == "root\n"
         else:
-            assert ret["stdout"] != "0"
+            assert ret["stdout"] != "root\n"
 
     def test_kernel_panic(self, sut):
         """

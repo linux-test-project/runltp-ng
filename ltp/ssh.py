@@ -6,12 +6,9 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import os
-import re
 import time
 import select
 import socket
-import string
-import secrets
 import logging
 import threading
 import importlib
@@ -44,7 +41,7 @@ class SSHSUT(SUT):
 
     # pylint: disable=too-many-statements
     def __init__(self) -> None:
-        self._logger = logging.getLogger("ltp.sut.ssh")
+        self._logger = logging.getLogger("ltp.ssh")
         self._tmpdir = None
         self._host = "localhost"
         self._port = 22
@@ -55,12 +52,10 @@ class SSHSUT(SUT):
         self._sudo = 0
         self._env = None
         self._cwd = None
-        self._ps1 = f"#{self._generate_string()}#"
         self._cmd_lock = threading.Lock()
         self._comm_lock = threading.Lock()
         self._fetch_lock = threading.Lock()
         self._stop = False
-        self._shell = None
         self._client = None
 
     def setup(self, **kwargs: dict) -> None:
@@ -74,7 +69,6 @@ class SSHSUT(SUT):
 
         self._tmpdir = kwargs.get("tmpdir", None)
         self._host = kwargs.get("host", "localhost")
-        self._port = int(kwargs.get("port", "22"))
         self._user = kwargs.get("user", "root")
         self._password = kwargs.get("password", None)
         key_file = kwargs.get("key_file", None)
@@ -82,16 +76,23 @@ class SSHSUT(SUT):
         known_hosts = kwargs.get("known_hosts", None)
         self._pkey = None
         self._reset_cmd = kwargs.get("reset_cmd", None)
-        self._sudo = int(kwargs.get("sudo", 0)) == 1
         self._env = kwargs.get("env", None)
         self._cwd = kwargs.get("cwd", None)
-        self._ps1 = f"#{self._generate_string()}#"
-        self._cmd_lock = threading.Lock()
-        self._comm_lock = threading.Lock()
-        self._fetch_lock = threading.Lock()
         self._stop = False
-        self._shell = None
         self._client = None
+
+        try:
+            self._port = int(kwargs.get("port", "22"))
+
+            if 1 > self._port > 65535:
+                raise ValueError()
+        except ValueError:
+            raise SUTError("'port' must be an integer between 1-65535")
+
+        try:
+            self._sudo = int(kwargs.get("sudo", 0)) == 1
+        except ValueError:
+            raise SUTError("'sudo' must be 0 or 1")
 
         if hostkey_policy not in ["auto", "missing", "reject"]:
             raise SUTError(f"'{hostkey_policy}' policy is not available")
@@ -128,9 +129,6 @@ class SSHSUT(SUT):
         if not self._user:
             raise SUTError("user is empty")
 
-        if self._port <= 0 or self._port >= 65536:
-            raise SUTError("port is out of range")
-
         if key_file and not os.path.isfile(key_file):
             raise SUTError("private key doesn't exist")
 
@@ -152,85 +150,6 @@ class SSHSUT(SUT):
             reset_command="command to reset the remote SUT",
             sudo="use sudo to access to root shell (default: 0)",
         )
-
-    @staticmethod
-    def _generate_string(length: int = 10) -> str:
-        """
-        Generate a random string of the given length.
-        """
-        out = ''.join(secrets.choice(string.ascii_letters + string.digits)
-                      for _ in range(length))
-        return out
-
-    # pylint: disable=too-many-locals
-    def _exec(self, command: str, timeout: float, iobuffer: IOBuffer) -> str:
-        """
-        Execute a command and wait for command prompt.
-        """
-        if not self.is_running:
-            return None
-
-        self._logger.debug("Execute (timeout %f): %s", timeout, repr(command))
-
-        try:
-            self._shell.send(command.encode(encoding="utf-8", errors="ignore"))
-        except BrokenPipeError as err:
-            if not self._stop:
-                raise SUTError(err)
-
-        stdout = ""
-        panic = False
-
-        # register stdout poller
-        stdout_fd = self._shell.fileno()
-        poller = select.epoll()
-        poller.register(
-            stdout_fd,
-            select.POLLIN |
-            select.POLLPRI |
-            select.POLLHUP |
-            select.POLLERR)
-
-        with Timeout(timeout) as timer:
-            while not stdout.endswith(self._ps1):
-                if self._shell is None:
-                    # this can happen during stop()
-                    break
-
-                events = poller.poll(1)
-
-                for fdesc, _ in events:
-                    if fdesc != stdout_fd:
-                        break
-
-                    if self._shell is not None and self._shell.recv_ready():
-                        data = self._shell.recv(512)
-                        sdata = data.decode(encoding="utf-8", errors="ignore")
-                        stdout += sdata.replace("\r", "")
-
-                        # write on stdout buffers
-                        if iobuffer:
-                            iobuffer.write(data)
-                            iobuffer.flush()
-
-                        if "Kernel panic" in stdout:
-                            panic = True
-
-                        timer.check(
-                            err_msg=f"Timed out waiting for {repr(self._ps1)}",
-                            exc=SUTTimeoutError)
-        if panic:
-            raise KernelPanicError()
-
-        # we don't want echo message
-        if stdout and stdout.startswith(command):
-            stdout = stdout[len(command):]
-
-        # we don't want prompt string at the end of the stdout
-        if stdout and "PS1" not in stdout and stdout.endswith(self._ps1):
-            stdout = stdout[:-len(self._ps1)]
-
-        return stdout
 
     @property
     def name(self) -> str:
@@ -274,50 +193,6 @@ class SSHSUT(SUT):
                     pkey=self._pkey,
                     timeout=timeout)
 
-                self._logger.info("Initialize shell")
-
-                self._shell = self._client.invoke_shell()
-
-                with Timeout(600) as timer:
-                    # wait for channel ready to be read/wrote
-                    while not (self._shell.send_ready() and
-                               self._shell.recv_ready()):
-                        timer.check(
-                            err_msg="Timed out waiting for shell",
-                            exc=SUTTimeoutError)
-
-                if self._sudo:
-                    self._logger.info("Login with root")
-                    self._shell.send(
-                        "sudo /bin/sh\n".encode(encoding="utf-8"))
-                    time.sleep(0.2)
-
-                ret = self.run_command(
-                    f"export PS1={self._ps1}",
-                    timeout=5,
-                    iobuffer=iobuffer)
-                if ret["returncode"] != 0:
-                    raise SUTError("Can't setup prompt string")
-
-                if self._cwd:
-                    ret = self.run_command(
-                        f"cd {self._cwd}",
-                        timeout=5,
-                        iobuffer=iobuffer)
-                    if ret["returncode"] != 0:
-                        raise SUTError(
-                            "Can't setup current working directory")
-
-                if self._env:
-                    for key, value in self._env.items():
-                        ret = self.run_command(
-                            f"export {key}={value}",
-                            timeout=5,
-                            iobuffer=iobuffer)
-                        if ret["returncode"] != 0:
-                            raise SUTError(
-                                f"Can't setup env {key}={value}")
-
                 self._logger.info("Connected to host")
             except SSHException as err:
                 raise SUTError(err)
@@ -351,7 +226,7 @@ class SSHSUT(SUT):
 
             with Timeout(timeout) as timer:
                 while True:
-                    events = poller.poll(0.2)
+                    events = poller.poll(0.1)
                     for fdesc, _ in events:
                         if fdesc != stdout:
                             break
@@ -374,9 +249,10 @@ class SSHSUT(SUT):
         self._stop = True
 
         try:
-            # we don't need to handle run_command here, because when command
-            # is running and client.close() is called, parent disconnect and
-            # so command stops to run
+            if self._client:
+                self._logger.info("Closing connection")
+                self._client.close()
+                self._logger.info("Connection closed")
 
             # wait until fetching file is ended
             if self._fetch_lock.locked():
@@ -388,37 +264,42 @@ class SSHSUT(SUT):
                             err_msg="Timed out during stop",
                             exc=SUTTimeoutError)
 
-            if self._client:
-                self._logger.info("Closing connection")
-                self._client.close()
-                self._logger.info("Connection closed")
-
             self._reset(timeout=timeout, iobuffer=iobuffer)
         except SSHException as err:
             raise SUTError(err)
         finally:
-            self._shell = None
             self._stop = False
 
     def force_stop(
             self,
             timeout: float = 30,
             iobuffer: IOBuffer = None) -> None:
-        self._stop = True
+        self.stop(timeout=timeout, iobuffer=iobuffer)
 
-        try:
-            if self._client:
-                self._logger.info("Closing connection")
-                self._client.close()
-                self._logger.info("Connection closed")
+    def _create_command(self, cmd: str) -> str:
+        """
+        Create command to send to SSH client.
+        """
+        script = ""
 
-            self._reset(timeout=timeout, iobuffer=iobuffer)
-        except SSHException as err:
-            raise SUTError(err)
-        finally:
-            self._shell = None
-            self._stop = False
+        if self._cwd:
+            script += f"cd {self._cwd}\n"
 
+        if self._env:
+            for key, value in self._env.items():
+                script += f"export {key}={value}\n"
+
+        script += cmd
+
+        end_command = ""
+        if self._sudo:
+            end_command = "sudo "
+
+        end_command += f"/bin/sh -s << 'EOF'\n{script}\nEOF"
+
+        return end_command
+
+    # pylint: disable=too-many-locals
     def run_command(
             self,
             command: str,
@@ -431,36 +312,64 @@ class SSHSUT(SUT):
             raise SUTError("SSH connection is not present")
 
         with self._cmd_lock:
-            self._logger.info("Running command: %s", command)
-
-            code = self._generate_string()
-
-            # send command
-            t_start = time.time()
-            stdout = self._exec(f"{command}\n", timeout, iobuffer)
-            t_end = time.time() - t_start
-
-            # read return code
-            reply = self._exec(f"echo $?-{code}\n", 5, iobuffer)
-
+            t_end = 0
             retcode = -1
+            stdout_str = ""
 
-            if reply:
-                match = re.search(f"^(?P<retcode>\\d+)-{code}", reply)
-                if not match:
-                    raise SUTError(
-                        f"Can't read return code from reply {repr(reply)}")
+            try:
+                self._logger.info("Running command: %s", repr(command))
 
-                try:
-                    retcode = int(match.group("retcode"))
-                except TypeError:
-                    pass
+                exec_cmd = self._create_command(command)
+
+                self._logger.debug(repr(exec_cmd))
+
+                t_start = time.time()
+                _, stdout, _ = self._client.exec_command(
+                    exec_cmd,
+                    timeout=timeout)
+
+                stdout.channel.set_combine_stderr(True)
+                stdout_str = ""
+                panic = False
+
+                while True:
+                    line = stdout.readline()
+                    if not line:
+                        break
+
+                    if "Kernel panic" in line:
+                        panic = True
+
+                    stdout_str += line
+                    if iobuffer:
+                        data = line.encode(encoding='utf-8')
+                        iobuffer.write(data)
+                        iobuffer.flush()
+
+                t_end = time.time() - t_start
+
+                if panic:
+                    raise KernelPanicError()
+
+                with Timeout(10) as timer:
+                    while not stdout.channel.exit_status_ready():
+                        timer.check(
+                            err_msg="Timeout when waiting for exit code",
+                            exc=SUTTimeoutError)
+
+                retcode = stdout.channel.recv_exit_status()
+            except socket.timeout:
+                raise SUTTimeoutError(
+                    f"Timeout during command execution: {repr(command)}")
+            except SSHException as err:
+                if not self._stop:
+                    raise SUTError(err)
 
             ret = {
                 "command": command,
                 "timeout": timeout,
                 "returncode": retcode,
-                "stdout": stdout,
+                "stdout": stdout_str,
                 "exec_time": t_end,
             }
 
@@ -478,29 +387,28 @@ class SSHSUT(SUT):
         if not self.is_running:
             raise SUTError("SSH connection is not present")
 
-        self._logger.info("Transfer file: %s", target_path)
+        with self._fetch_lock:
+            self._logger.info("Transfer file: %s", target_path)
 
-        secs_t = max(timeout, 0)
-        filename = os.path.basename(target_path)
-        local_path = os.path.join(self._tmpdir, filename)
-        data = b''
+            secs_t = max(timeout, 0)
+            filename = os.path.basename(target_path)
+            local_path = os.path.join(self._tmpdir, filename)
+            data = b''
 
-        try:
-            with SCPClient(
-                    self._client.get_transport(),
-                    socket_timeout=secs_t) as scp:
-                scp.get(target_path, local_path=local_path)
+            try:
+                with SCPClient(
+                        self._client.get_transport(),
+                        socket_timeout=secs_t) as scp:
+                    scp.get(target_path, local_path=local_path)
 
-            with open(local_path, "rb") as lpath:
-                data = lpath.read()
-        except (SCPException, SSHException, EOFError) as err:
-            if not self._stop:
-                raise SUTError(err)
-        except NameError:
-            raise SUTError("scp package is not installed")
-        except (TimeoutError, socket.timeout) as err:
-            raise SUTTimeoutError(err)
+                with open(local_path, "rb") as lpath:
+                    data = lpath.read()
+            except (SCPException, SSHException, EOFError) as err:
+                if not self._stop:
+                    raise SUTError(err)
+            except (TimeoutError, socket.timeout) as err:
+                raise SUTTimeoutError(err)
 
-        self._logger.info("File transfer completed")
+            self._logger.info("File transfer completed")
 
-        return data
+            return data
