@@ -10,6 +10,7 @@ from ltp.tests.sut import Printer
 @pytest.fixture
 def sut():
     sut = HostSUT()
+    sut.setup()
 
     yield sut
 
