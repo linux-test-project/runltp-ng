@@ -16,7 +16,6 @@ import logging
 import threading
 import importlib
 import subprocess
-import ltp.sut
 from ltp.sut import SUT
 from ltp.sut import IOBuffer
 from ltp.sut import SUTError
@@ -36,9 +35,8 @@ try:
 except ModuleNotFoundError:
     pass
 
+
 # pylint: disable=too-many-instance-attributes
-
-
 class SSHSUT(SUT):
     """
     A SUT that is using SSH protocol con communicate and transfer data.
@@ -253,25 +251,6 @@ class SSHSUT(SUT):
         reply_t = ret["exec_time"]
 
         return reply_t
-
-    def get_info(self) -> dict:
-        self._logger.info("Reading SUT information")
-
-        ret = ltp.sut.collect_sysinfo(self)
-        ret.pop("kernel_tained")
-
-        self._logger.debug(ret)
-
-        return ret
-
-    def get_tained_info(self) -> set:
-        self._logger.info("Checking for tained kernel")
-
-        code, messages = ltp.sut.collect_sysinfo(self)["kernel_tained"]
-
-        self._logger.debug("code=%d, messages=%s", code, messages)
-
-        return code, messages
 
     def communicate(
             self,
