@@ -5,7 +5,6 @@
 
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
-from concurrent.futures import ThreadPoolExecutor
 
 _EVENTS = {}
 
@@ -83,19 +82,5 @@ def fire(event_name: str, *args: list, **kwargs: dict) -> None:
         # ignore raising the error
         return
 
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        for callback in _EVENTS[event_name]:
-            if not callback:
-                continue
-
-            future = executor.submit(callback, *args, **kwargs)
-            exc = future.exception()
-
-            if exc and "internal_error" in _EVENTS:
-                calls = _EVENTS["internal_error"]
-                if len(calls) > 0:
-                    callback = calls[0]
-                    if not callback:
-                        continue
-
-                    callback(exc, callback.__name__)
+    for callback in _EVENTS[event_name]:
+        callback(*args, **kwargs)
