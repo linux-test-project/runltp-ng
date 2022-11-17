@@ -11,8 +11,8 @@ import sys
 import time
 import logging
 import threading
+import ltp
 import ltp.data
-import ltp.events
 from ltp import LTPException
 from ltp.sut import SUT
 from ltp.sut import IOBuffer

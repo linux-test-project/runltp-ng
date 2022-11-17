@@ -197,7 +197,7 @@ class _TestSUT:
             assert data == b"runltp-ng tests"
 
     @pytest.mark.parametrize("force", [True, False])
-    def test_stop_fetch_file(self, tmpdir, sut, force):
+    def test_stop_fetch_file(self, sut, force):
         """
         Test stop method when running fetch_file.
         """

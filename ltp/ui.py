@@ -6,7 +6,7 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import platform
-import ltp.events
+import ltp
 from ltp.data import Test
 from ltp.data import Suite
 from ltp.results import TestResults
@@ -36,6 +36,7 @@ class ConsoleUserInterface:
         ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
         ltp.events.register("run_cmd_stop", self.run_cmd_stop)
         ltp.events.register("session_error", self.session_error)
+        ltp.events.register("internal_error", self.internal_error)
 
     def _print(self, msg: str, color: str = None, end: str = "\n"):
         """
@@ -97,6 +98,11 @@ class ConsoleUserInterface:
 
     def session_error(self, error: str) -> None:
         self._print(f"Error: {error}", color=self.RED)
+
+    def internal_error(self, exc: BaseException, func_name: str) -> None:
+        self._print(
+            f"\nUI error in function '{func_name}': {exc}\n",
+            color=self.RED)
 
 
 class SimpleUserInterface(ConsoleUserInterface):

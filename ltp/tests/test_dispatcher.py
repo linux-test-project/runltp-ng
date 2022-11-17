@@ -4,10 +4,10 @@ Unittests for Dispatcher implementations.
 import os
 import math
 import stat
-import threading
-import pytest
+import queue
 from unittest.mock import MagicMock
-import ltp.events
+import pytest
+import ltp
 import ltp.sut
 from ltp.sut import SUTError
 from ltp.host import HostSUT
@@ -26,6 +26,11 @@ class TestSerialDispatcher:
         """
         Setup events before test.
         """
+        ltp.events.start_event_loop()
+
+        yield
+
+        ltp.events.stop_event_loop()
         ltp.events.reset()
 
     @pytest.fixture
@@ -184,13 +189,8 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        def _threaded():
+        def stop_exec_suites(_):
             dispatcher.stop(timeout=3)
-
-        thread = threading.Thread(target=_threaded, daemon=True)
-
-        def stop_exec_suites(test):
-            thread.start()
 
         ltp.events.register("test_started", stop_exec_suites)
 
@@ -198,10 +198,7 @@ class TestSerialDispatcher:
 
         results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
 
-        thread.join(timeout=1)
-
         assert len(results) == 1
-
         assert results[0].passed == 1
         assert len(results[0].tests_results) == 1
 
@@ -347,20 +344,22 @@ class TestSerialDispatcher:
                 self._bit = bit
                 self._msg = msg
                 self._first = True
-                self.tained_msg = None
-                self.rebooted = False
+                self.tained_msg = queue.Queue()
+                self.rebooted = queue.Queue()
 
             def kernel_tained(self, msg: str):
                 if self._first:
                     self._first = False
 
+                    # now we change tained information to trigger
+                    # sut_restart event
                     sut.get_tained_info = MagicMock(
                         return_value=(self._bit, [self._msg]))
-
-                self.tained_msg = msg
+                else:
+                    self.tained_msg.put(msg)
 
             def sut_restart(self, name: str):
-                self.rebooted = True
+                self.rebooted.put(True)
 
         try:
             for i in range(0, 18):
@@ -375,11 +374,11 @@ class TestSerialDispatcher:
 
                 dispatcher.exec_suites(suites=["dirsuite0"])
 
+                assert checker.tained_msg.get() == msg
+                assert checker.rebooted.get()
+
                 ltp.events.unregister("kernel_tained")
                 ltp.events.unregister("sut_restart")
-
-                assert msg == checker.tained_msg
-                assert checker.rebooted
         finally:
             sut.stop()
 

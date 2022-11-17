@@ -14,6 +14,7 @@ import importlib
 import importlib.util
 from argparse import ArgumentParser
 from argparse import Namespace
+import ltp
 from ltp.sut import SUT
 from ltp.tempfile import TempDir
 from ltp.session import Session
@@ -162,6 +163,8 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         except re.error:
             parser.error(f"'{skip_tests}' is not a valid regular expression")
 
+    ltp.events.start_event_loop()
+
     if args.verbose:
         VerboseUserInterface(args.no_colors)
     else:
@@ -183,6 +186,8 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         args.ltp_dir,
         tmpdir,
         skip_tests=skip_tests)
+
+    ltp.events.stop_event_loop()
 
     sys.exit(exit_code)
 

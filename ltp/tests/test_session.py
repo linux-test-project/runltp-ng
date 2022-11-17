@@ -4,13 +4,12 @@ Unittests for session module.
 import json
 import os
 import stat
-import threading
+import queue
 import pytest
-import ltp.events
-from ltp.host import HostSUT
-from ltp.qemu import QemuSUT
+import ltp
 from ltp.session import Session
 from ltp.tempfile import TempDir
+from ltp.host import HostSUT
 
 
 class EventsTracer:
@@ -24,7 +23,7 @@ class EventsTracer:
             sut_name: str,
             command: str) -> None:
         self._counter = -1
-        self._messages = []
+        self._messages = queue.Queue()
         self._tmpdir = tmpdir
         self._sut_name = sut_name
         self._command = command
@@ -41,44 +40,44 @@ class EventsTracer:
 
     def next_event(self) -> str:
         self._counter += 1
-        return self._messages[self._counter]
+        return self._messages.get()
 
     def _session_started(self, tmpdir) -> None:
         assert tmpdir.startswith(self._tmpdir)
-        self._messages.append("session_started")
+        self._messages.put("session_started")
 
     def _session_completed(self, results) -> None:
-        self._messages.append("session_completed")
+        self._messages.put("session_completed")
 
     def _session_stopped(self) -> None:
-        self._messages.append("session_stopped")
+        self._messages.put("session_stopped")
 
     def _session_error(self, err) -> None:
         assert err is not None
-        self._messages.append("session_error")
+        self._messages.put("session_error")
 
     def _sut_start(self, sut_name) -> None:
         assert sut_name == self._sut_name
-        self._messages.append("sut_start")
+        self._messages.put("sut_start")
 
     def _sut_stop(self, sut_name) -> None:
         assert sut_name == self._sut_name
-        self._messages.append("sut_stop")
+        self._messages.put("sut_stop")
 
     def _run_cmd_start(self, command) -> None:
         assert command == self._command
-        self._messages.append("run_cmd_start")
+        self._messages.put("run_cmd_start")
 
     def _run_cmd_stop(self, command, stdout, returncode) -> None:
         assert command == self._command
         assert returncode == 0
-        self._messages.append("run_cmd_stop")
+        self._messages.put("run_cmd_stop")
 
     def _suite_timeout(self, suite_name, timeout) -> None:
-        self._messages.append("suite_timeout")
+        self._messages.put("suite_timeout")
 
 
-class _TestSession:
+class TestSession:
     """
     Tests for Session implementation.
     """
@@ -88,6 +87,11 @@ class _TestSession:
         """
         Setup events before test.
         """
+        ltp.events.start_event_loop()
+
+        yield
+
+        ltp.events.stop_event_loop()
         ltp.events.reset()
 
     @pytest.fixture
@@ -95,31 +99,20 @@ class _TestSession:
         """
         Current implemented SUT in the default runltp-ng implementation.
         """
-        return [
-            HostSUT(),
-            QemuSUT()
-        ]
+        return [HostSUT()]
 
     @pytest.fixture
-    def ltpdir(self):
-        """
-        LTP install directory.
-        """
-        raise NotImplementedError()
+    def ltpdir(self, tmpdir):
+        return str(tmpdir / "ltp")
 
     @pytest.fixture
     def suites(self):
-        """
-        LTP suites to run.
-        """
-        raise NotImplementedError()
+        return ["dirsuite0", "dirsuite1"]
 
     @pytest.fixture
     def sut_config(self):
-        """
-        SUT configuration to implement.
-        """
-        raise NotImplementedError()
+        config = {"name": "host"}
+        return config
 
     @pytest.fixture
     def prepare_tmpdir(self, tmpdir):
@@ -306,13 +299,8 @@ class _TestSession:
 
         session = Session(suts)
 
-        def _threaded():
-            session.stop(timeout=3)
-
-        thread = threading.Thread(target=_threaded, daemon=True)
-
         def stop_exec_suites(test):
-            thread.start()
+            session.stop(timeout=3)
 
         ltp.events.register("test_started", stop_exec_suites)
 
@@ -328,8 +316,6 @@ class _TestSession:
             None,
             ltpdir,
             TempDir(tmpdir))
-
-        thread.join(timeout=10)
 
         assert retcode == Session.RC_OK
         assert os.path.exists(report_path)
@@ -367,55 +353,3 @@ class _TestSession:
         assert tracer.next_event() == "suite_timeout"
         assert tracer.next_event() == "sut_stop"
         assert tracer.next_event() == "session_completed"
-
-
-class TestHostSession(_TestSession):
-    """
-    Test Session using host SUT.
-    """
-
-    @pytest.fixture
-    def ltpdir(self, tmpdir):
-        return str(tmpdir / "ltp")
-
-    @pytest.fixture
-    def suites(self):
-        return ["dirsuite0", "dirsuite1"]
-
-    @pytest.fixture
-    def sut_config(self):
-        config = {"name": "host"}
-        return config
-
-
-TEST_QEMU_IMAGE = os.environ.get("TEST_QEMU_IMAGE", None)
-TEST_QEMU_PASSWORD = os.environ.get("TEST_QEMU_PASSWORD", None)
-
-
-@pytest.mark.qemu
-@pytest.mark.skipif(TEST_QEMU_IMAGE is None, reason="TEST_QEMU_IMAGE is not defined")
-@pytest.mark.skipif(TEST_QEMU_PASSWORD is None, reason="TEST_QEMU_IMAGE is not defined")
-class TestQemuSession(_TestSession):
-    """
-    Test Session using QemuSUT.
-    """
-
-    @pytest.fixture
-    def ltpdir(self):
-        return "/opt/ltp"
-
-    @pytest.fixture
-    def suites(self):
-        return ["math", "watchqueue"]
-
-    @pytest.fixture
-    def sut_config(self):
-        """
-        Qemu SUT configuration.
-        """
-        config = {
-            "name": "qemu",
-            "image": TEST_QEMU_IMAGE,
-            "password": TEST_QEMU_PASSWORD
-        }
-        return config

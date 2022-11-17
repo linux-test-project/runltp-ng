@@ -9,7 +9,7 @@ import os
 import time
 import logging
 import threading
-import ltp.events
+import ltp
 from ltp import LTPException
 from ltp.sut import SUT
 from ltp.sut import IOBuffer

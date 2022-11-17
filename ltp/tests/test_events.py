@@ -1,8 +1,9 @@
 """
 Unittest for events module.
 """
+from queue import Queue
 import pytest
-import ltp.events
+import ltp
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -10,6 +11,11 @@ def setup():
     """
     Setup events before test.
     """
+    ltp.events.start_event_loop()
+
+    yield
+
+    ltp.events.stop_event_loop()
     ltp.events.reset()
 
 
@@ -86,10 +92,10 @@ def test_fire():
     """
     Test fire method.
     """
-    called = []
+    called = Queue()
 
     def funct(param):
-        called.append(param)
+        called.put(param)
 
     ltp.events.register("myevent", funct)
     assert ltp.events.is_registered("myevent")
@@ -98,4 +104,4 @@ def test_fire():
         ltp.events.fire("myevent", f"index{i}")
 
     for i in range(1000):
-        assert called[i] == f"index{i}"
+        assert called.get() == f"index{i}"
