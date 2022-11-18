@@ -284,21 +284,18 @@ class SSHSUT(SUT):
         script = ""
 
         if self._cwd:
-            script += f"cd {self._cwd}\n"
+            script += f"cd {self._cwd};"
 
         if self._env:
             for key, value in self._env.items():
-                script += f"export {key}={value}\n"
+                script += f"export {key}={value};"
 
         script += cmd
 
-        end_command = ""
         if self._sudo:
-            end_command = "sudo "
+            script = f"sudo /bin/sh -c '{script}'"
 
-        end_command += f"/bin/sh -s << 'EOF'\n{script}\nEOF"
-
-        return end_command
+        return script
 
     # pylint: disable=too-many-locals
     def run_command(
