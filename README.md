@@ -84,6 +84,11 @@ Every session has a temporary directory which can be found in
 called `latest`, pointing to the latest session's temporary directory, and the
 application will rotate over 5 sessions.
 
+For more information, checkout the following video at the SUSE Labs Conference
+2022:
+
+[![Watch the video](https://img.youtube.com/vi/JMeJBt3S7B0/hqdefault.jpg)](https://www.youtube.com/watch?v=JMeJBt3S7B0)
+
 Setting up console for Qemu
 ===========================
 
