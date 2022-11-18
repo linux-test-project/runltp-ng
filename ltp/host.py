@@ -91,9 +91,11 @@ class HostSUT(SUT):
 
         with Timeout(timeout) as timer:
             while self._fetch_lock.locked():
+                time.sleep(1e-6)
                 timer.check(err_msg="Timeout waiting for command to stop")
 
             while self._cmd_lock.locked():
+                time.sleep(1e-6)
                 timer.check(err_msg="Timeout waiting for command to stop")
 
         self._logger.info("Process terminated")

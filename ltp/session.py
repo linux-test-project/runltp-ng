@@ -239,7 +239,7 @@ class Session:
             timer.check(err_msg="Timeout when stopping session")
 
             while self._lock_run.locked():
-                time.sleep(0.05)
+                time.sleep(1e-6)
                 timer.check(
                     err_msg="Timeout when stopping session",
                     exc=SessionError)

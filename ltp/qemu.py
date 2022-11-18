@@ -372,10 +372,12 @@ class QemuSUT(SUT):
 
                 # wait until command ends
                 while self._cmd_lock.locked():
+                    time.sleep(1e-6)
                     timer.check(err_msg="Timed out during stop")
 
                 # wait until fetching file is ended
                 while self._fetch_lock.locked():
+                    time.sleep(1e-6)
                     timer.check(err_msg="Timed out during stop")
 
                 # logged in -> poweroff
@@ -406,10 +408,12 @@ class QemuSUT(SUT):
 
                 # wait communicate() to end
                 while self._comm_lock.locked():
+                    time.sleep(1e-6)
                     timer.check(err_msg="Timed out during stop")
 
                 # wait for process to end
                 while self._proc.poll() is None:
+                    time.sleep(1e-6)
                     timer.check(err_msg="Timed out during stop")
 
             finally:
@@ -435,14 +439,17 @@ class QemuSUT(SUT):
 
                     # stop command first
                     while self._cmd_lock.locked():
+                        time.sleep(1e-6)
                         timer.check(err_msg="Timed out during stop")
 
                     # wait communicate() to end
                     while self._comm_lock.locked():
+                        time.sleep(1e-6)
                         timer.check(err_msg="Timed out during stop")
 
                     # wait for process to end
                     while self._proc.poll() is None:
+                        time.sleep(1e-6)
                         timer.check(err_msg="Timed out during stop")
             finally:
                 self._stop = False

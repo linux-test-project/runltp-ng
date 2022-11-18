@@ -260,6 +260,7 @@ class SSHSUT(SUT):
 
                 with Timeout(timeout) as timer:
                     while self._fetch_lock.locked():
+                        time.sleep(1e-6)
                         timer.check(
                             err_msg="Timed out during stop",
                             exc=SUTTimeoutError)
