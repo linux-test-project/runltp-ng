@@ -132,3 +132,79 @@ Requirements
 ============
 
 Check `requirements.txt` for more information about package requirements.
+
+History
+=======
+
+The LTP `runltp` code is hard to read, maintain and some of its parts
+are legacy features which are not supported anymore. But if we focus closer on
+the results, `runltp` has done its job for a while since 2001. Nowadays, with
+new automation systems, easily accesible virtualization and bigger computing
+power, `runltp` became more and more obsolete, since its main goal was to test
+Linux Kernel on target and specific distro(s). Let's take a look at the issues
+we have:
+
+- it's hard to maintain and it's based on a mixture of bash/C, both hard
+  to read and not maintained anymore
+- it contains many features which are not used and they can be deprecated
+- report files are custom format logs or HTML files which are both hard to parse
+  inside i.e. an automation system
+- if a test causes system crash, which is common for kernel tests, the tool
+  crashes and we loose most or even all results we obtained before its
+  execution. This means we need to run it inside a virtualized system to be
+  sure that if system crashes, we won't loose control of the machine. And, in
+  any case, we will loose testing report
+
+The last point is really important, since in a world where cloud and embedded
+systems are having a big market, we need to provide a usable and a stable way to
+test Linux Kernel. Something that `runltp` is not able to achieve nowadays.
+
+The new runltp-ng features
+--------------------------
+
+Cyril Hrubis started the first Perl prototype of `runltp-ng`
+(https://github.com/metan-ucw/runltp-ng/), a next generation tests runner that
+allows to run tests on a host, as well as inside a Qemu instance or over a SSH.
+The tool provided results in a machine parsable format which were easy to
+consume by automation systems.
+However as the community didn't like the choice of Perl programming language we
+decided to switch from Perl to Python to take advantage of the Python community
+size, easier maintenance and packages (https://github.com/acerv/runltp-ng).
+
+In particular, we tried to focus on missing features and got rid of the ones
+which were not strictly needed. We ended up with a simple and light tool having
+the following features:
+
+- test suites can run inside a virtualized system using Qemu or they can be
+  executed via SSH protocol
+- runner became more robust so it can gracefully handle kernel crashes and
+  tained statuses of the kernel. At the moment, only Qemu supports this feature
+- report file type is JSON by default, so it will be easier to parse with
+  external tools and automation systems
+- the user interface has been simplified, so we have two modes: quiet and
+  verbose mode. The quiet mode is the default one and it shows only tests names
+  and their results on a list. Verbose mode is similar to the current `runltp`
+  stdout
+
+What's next?
+------------
+
+Nowadays `runltp-ng` is a simple and lightweight implementation that is based on
+Python 3.6+ and it doesn't have any dependency from external packages.
+Its skeleton is easy to understand and features can be added easily.
+
+A missing feature that is currently under development is the possibility to
+remotely execute test suites. The most important services we are going to
+support are SSH and LTX (experimental).
+
+LTX is a small service that runs on target and it permits to communicate via
+msgpack (https://msgpack.org/) in order to execute binaries on host in the
+fastest way as possible. Its development is currently maintained by Richard
+Palethorpe and we plan to make it the default LTP runner in the next future.
+When LTP metadata file will be completed, LTX will also permit to execute tests
+in parallel.
+
+By taking in consideration previous topics, we can still provide an usable and
+simple tool that can replace current `runltp` script inside the LTP upstream.
+Its usage is simple, pretty stable and we are starting to move forward into
+a modern approach to schedule and run tests in the Linux Testing Project.
