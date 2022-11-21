@@ -26,7 +26,8 @@ class ConsoleUserInterface:
     YELLOW = "\033[1;33m"
     RED = "\033[1;31m"
     CYAN = "\033[1;36m"
-    RESET = "\033[2J"
+    RESET_COLOR = "\033[0m"
+    RESET_SCREEN = "\033[2J"
 
     def __init__(self, no_colors: bool = False) -> None:
         self._no_colors = no_colors
@@ -51,8 +52,11 @@ class ConsoleUserInterface:
         """
         Print a message.
         """
+        msg = msg.replace(self.RESET_SCREEN, '')
+        msg = msg.replace('\r', '')
+
         if color and not self._no_colors:
-            print(color + msg + '\033[0m', end=end, flush=True)
+            print(f"{color}{msg}{self.RESET_COLOR}", end=end, flush=True)
         else:
             print(msg, end=end, flush=True)
 
@@ -74,6 +78,32 @@ class ConsoleUserInterface:
             uf_time = f"{seconds:.3f}s"
 
         return uf_time
+
+    def _print_stdout(self, data: bytes) -> None:
+        """
+        Print stdout coming from command run or test.
+        """
+        data_str = data.decode(encoding="utf-8", errors="replace")
+
+        if len(data_str) == 1:
+            self._line += data_str
+            if data_str == "\n":
+                self._print(self._line, end='')
+                self._line = ""
+        else:
+            lines = data_str.splitlines(True)
+            if len(lines) > 0:
+                for line in lines[:-1]:
+                    self._line += line
+
+                    self._print(self._line, end='')
+                    self._line = ""
+
+                self._line = lines[-1]
+
+            if data_str.endswith('\n') and self._line:
+                self._print(self._line, end='')
+                self._line = ""
 
     def session_started(self, tmpdir: str) -> None:
         uname = platform.uname()
@@ -104,28 +134,7 @@ class ConsoleUserInterface:
         self._print(f"{cmd}", color=self.CYAN)
 
     def run_cmd_stdout(self, data: bytes) -> None:
-        data_str = data.decode(encoding="utf-8", errors="replace")
-        data_str.replace('\r', '')
-
-        if len(data_str) == 1:
-            self._line += data_str
-            if data_str == "\n":
-                self._print(self._line, end='')
-                self._line = ""
-        else:
-            lines = data_str.splitlines(True)
-            if len(lines) > 0:
-                for line in lines[:-1]:
-                    self._line += line
-
-                    self._print(self._line, end='')
-                    self._line = ""
-
-                self._line = lines[-1]
-
-            if data_str.endswith('\n') and self._line:
-                self._print(self._line, end='')
-                self._line = ""
+        self._print_stdout(data)
 
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
         self._print(f"\nExit code: {returncode}\n")
@@ -257,8 +266,6 @@ class VerboseUserInterface(ConsoleUserInterface):
         super().__init__(no_colors=no_colors)
 
         self._timed_out = False
-        self._buffer = ""
-        self._line = ""
 
         ltp.events.register("sut_stdout_line", self.sut_stdout_line)
         ltp.events.register("kernel_tained", self.kernel_tained)
@@ -268,13 +275,7 @@ class VerboseUserInterface(ConsoleUserInterface):
         ltp.events.register("test_stdout_line", self.test_stdout_line)
 
     def sut_stdout_line(self, _: str, data: bytes) -> None:
-        self._buffer += data.decode(encoding="utf-8", errors="ignore")
-
-        if data == b'\n':
-            # remove reset character, otherwise terminal logs might be cleaned
-            self._buffer = self._buffer.replace(self.RESET, "")
-            self._print(self._buffer, end="")
-            self._buffer = ""
+        self._print_stdout(data)
 
     def kernel_tained(self, message: str) -> None:
         self._print(f"Tained kernel: {message}", color=self.YELLOW)
@@ -295,15 +296,16 @@ class VerboseUserInterface(ConsoleUserInterface):
 
         self._timed_out = False
 
-        uf_time = self._user_friendly_duration(results.exec_time)
+        if "Summary:" not in results.stdout:
+            self._print("\nSummary:")
+            self._print(f"passed    {results.passed}")
+            self._print(f"failed    {results.failed}")
+            self._print(f"broken    {results.broken}")
+            self._print(f"skipped   {results.skipped}")
+            self._print(f"warnings  {results.warnings}")
 
+        uf_time = self._user_friendly_duration(results.exec_time)
         self._print(f"\nDuration: {uf_time}\n")
-        self._print("Summary:")
-        self._print(f"passed    {results.passed}")
-        self._print(f"failed    {results.failed}")
-        self._print(f"broken    {results.broken}")
-        self._print(f"skipped   {results.skipped}")
-        self._print(f"warnings  {results.warnings}")
 
     def test_stdout_line(self, _: Test, line: str) -> None:
         col = ""
