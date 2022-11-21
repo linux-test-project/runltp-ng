@@ -8,39 +8,39 @@ LTP Next-Gen runner is a new version of the `runltp` script used by the
 
         System: Linux
         Node: susy
-        Kernel Release: 5.14.21-150400.24.21-default
-        Kernel Version: #1 SMP PREEMPT_DYNAMIC Wed Sep 7 06:51:18 UTC 2022 (974d0aa)
+        Kernel Release: 5.14.21-150400.24.33-default
+        Kernel Version: #1 SMP PREEMPT_DYNAMIC Fri Nov 4 13:55:06 UTC 2022 (76cfe60)
         Machine Architecture: x86_64
         Processor: x86_64
 
-        Temporary directory: /tmp/runltp.acer/tmp3t9hwivz
+        Temporary directory: /tmp/runltp.acer/tmpcwtket0m
 
     Connecting to SUT: host
     Downloading suite: math
     Starting suite: math
-    abs01: pass
-    atof01: pass
-    float_bessel: pass
-    float_exp_log: pass
-    float_iperb: pass
-    float_power: pass
-    float_trigo: pass
-    fptest01: pass
-    fptest02: pass
-    nextafter01: pass
+    abs01: pass | tained  (0.005s)
+    atof01: pass | tained  (0.005s)
+    float_bessel: pass | tained  (0.702s)
+    float_exp_log: pass | tained  (0.703s)
+    float_iperb: pass | tained  (0.288s)
+    float_power: pass | tained  (0.540s)
+    float_trigo: pass | tained  (0.643s)
+    fptest01: pass | tained  (0.020s)
+    fptest02: pass | tained  (0.005s)
+    nextafter01: pass | tained  (0.004s)
 
     Suite Name: math
     Total Run: 10
-    Elapsed Time: 4.2 seconds
+    Elapsed Time: 2.9 seconds
     Passed Tests: 22
     Failed Tests: 0
     Skipped Tests: 0
     Broken Tests: 0
     Warnings: 0
-    Kernel Version: Linux 5.14.21-150400.24.21-default #1 SMP PREEMPT_DYNAMIC Wed Sep 7 06:51:18 UTC 2022 (974d0aa)
+    Kernel Version: Linux 5.14.21-150400.24.33-default #1 SMP PREEMPT_DYNAMIC Fri Nov 4 13:55:06 UTC 2022 (76cfe60)
     CPU: x86_64
     Machine Architecture: x86_64
-    RAM: 15569568 kB
+    RAM: 15569564 kB
     Swap memory: 2095424 kB
     Distro: opensuse-leap
     Distro Version: 15.4
