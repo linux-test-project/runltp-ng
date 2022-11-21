@@ -32,9 +32,18 @@ class ConsoleUserInterface:
         self._no_colors = no_colors
         self._line = ""
 
+        ltp.events.register("session_started", self.session_started)
+        ltp.events.register("session_stopped", self.session_stopped)
+        ltp.events.register("sut_start", self.sut_start)
+        ltp.events.register("sut_stop", self.sut_stop)
+        ltp.events.register("sut_restart", self.sut_restart)
         ltp.events.register("run_cmd_start", self.run_cmd_start)
         ltp.events.register("run_cmd_stdout", self.run_cmd_stdout)
         ltp.events.register("run_cmd_stop", self.run_cmd_stop)
+        ltp.events.register("suite_download_started",
+                            self.suite_download_started)
+        ltp.events.register("suite_started", self.suite_started)
+        ltp.events.register("suite_completed", self.suite_completed)
         ltp.events.register("session_error", self.session_error)
         ltp.events.register("internal_error", self.internal_error)
 
@@ -66,6 +75,31 @@ class ConsoleUserInterface:
 
         return uf_time
 
+    def session_started(self, tmpdir: str) -> None:
+        uname = platform.uname()
+        message = "Host information\n\n"
+        message += f"\tSystem: {uname.system}\n"
+        message += f"\tNode: {uname.node}\n"
+        message += f"\tKernel Release: {uname.release}\n"
+        message += f"\tKernel Version: {uname.version}\n"
+        message += f"\tMachine Architecture: {uname.machine}\n"
+        message += f"\tProcessor: {uname.processor}\n"
+        message += f"\n\tTemporary directory: {tmpdir}\n"
+
+        self._print(message)
+
+    def session_stopped(self) -> None:
+        self._print("Session stopped")
+
+    def sut_start(self, sut: str) -> None:
+        self._print(f"Connecting to SUT: {sut}")
+
+    def sut_stop(self, sut: str) -> None:
+        self._print(f"\nDisconnecting from SUT: {sut}")
+
+    def sut_restart(self, sut: str) -> None:
+        self._print(f"Restarting SUT: {sut}")
+
     def run_cmd_start(self, cmd: str) -> None:
         self._print(f"{cmd}", color=self.CYAN)
 
@@ -96,6 +130,40 @@ class ConsoleUserInterface:
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
         self._print(f"\nExit code: {returncode}\n")
 
+    def suite_download_started(
+            self,
+            name: str,
+            target: str) -> None:
+        self._print(f"Downloading suite: {name}")
+
+    def suite_started(self, suite: Suite) -> None:
+        self._print(f"Starting suite: {suite.name}")
+
+    def suite_completed(self, results: SuiteResults) -> None:
+        message = "\n"
+        message += f"Suite Name: {results.suite.name}\n"
+        message += f"Total Run: {len(results.suite.tests)}\n"
+        message += f"Elapsed Time: {results.exec_time:.3f} seconds\n"
+        message += f"Passed Tests: {results.passed}\n"
+        message += f"Failed Tests: {results.failed}\n"
+        message += f"Skipped Tests: {results.skipped}\n"
+        message += f"Broken Tests: {results.broken}\n"
+        message += f"Warnings: {results.warnings}\n"
+        message += f"Kernel Version: {results.kernel}\n"
+        message += f"CPU: {results.cpu}\n"
+        message += f"Machine Architecture: {results.arch}\n"
+        message += f"RAM: {results.ram}\n"
+        message += f"Swap memory: {results.swap}\n"
+        message += f"Distro: {results.distro}\n"
+        message += f"Distro Version: {results.distro_ver}\n"
+
+        self._print(message)
+
+    def suite_timeout(self, suite: Suite, timeout: float) -> None:
+        self._print(
+            f"Suite '{suite.name}' timed out after {timeout} seconds",
+            color=self.RED)
+
     def session_error(self, error: str) -> None:
         self._print(f"Error: {error}", color=self.RED)
 
@@ -118,47 +186,12 @@ class SimpleUserInterface(ConsoleUserInterface):
         self._kernel_tained = None
         self._timed_out = False
 
-        ltp.events.register("session_started", self.session_started)
-        ltp.events.register("session_stopped", self.session_stopped)
-        ltp.events.register("sut_start", self.sut_start)
-        ltp.events.register("sut_stop", self.sut_stop)
-        ltp.events.register("sut_restart", self.sut_restart)
         ltp.events.register("sut_not_responding", self.sut_not_responding)
         ltp.events.register("kernel_panic", self.kernel_panic)
         ltp.events.register("kernel_tained", self.kernel_tained)
         ltp.events.register("test_timed_out", self.test_timed_out)
-        ltp.events.register("suite_download_started",
-                            self.suite_download_started)
-        ltp.events.register("suite_started", self.suite_started)
-        ltp.events.register("suite_completed", self.suite_completed)
-        ltp.events.register("suite_timeout", self.suite_timeout)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
-
-    def session_started(self, tmpdir: str) -> None:
-        uname = platform.uname()
-        message = "Host information\n\n"
-        message += f"\tSystem: {uname.system}\n"
-        message += f"\tNode: {uname.node}\n"
-        message += f"\tKernel Release: {uname.release}\n"
-        message += f"\tKernel Version: {uname.version}\n"
-        message += f"\tMachine Architecture: {uname.machine}\n"
-        message += f"\tProcessor: {uname.processor}\n"
-        message += f"\n\tTemporary directory: {tmpdir}\n"
-
-        self._print(message)
-
-    def session_stopped(self) -> None:
-        self._print("Session stopped")
-
-    def sut_start(self, sut: str) -> None:
-        self._print(f"Connecting to SUT: {sut}")
-
-    def sut_stop(self, sut: str) -> None:
-        self._print(f"\nDisconnecting from SUT: {sut}")
-
-    def sut_restart(self, sut: str) -> None:
-        self._print(f"Restarting SUT: {sut}")
 
     def sut_not_responding(self) -> None:
         self._sut_not_responding = True
@@ -171,40 +204,6 @@ class SimpleUserInterface(ConsoleUserInterface):
 
     def test_timed_out(self, _: Test, timeout: int) -> None:
         self._timed_out = True
-
-    def suite_download_started(
-            self,
-            name: str,
-            target: str) -> None:
-        self._print(f"Downloading suite: {name}")
-
-    def suite_started(self, suite: Suite) -> None:
-        self._print(f"Starting suite: {suite.name}")
-
-    def suite_completed(self, results: SuiteResults) -> None:
-        message = "\n"
-        message += f"Suite Name: {results.suite.name}\n"
-        message += f"Total Run: {len(results.suite.tests)}\n"
-        message += f"Elapsed Time: {results.exec_time:.1f} seconds\n"
-        message += f"Passed Tests: {results.passed}\n"
-        message += f"Failed Tests: {results.failed}\n"
-        message += f"Skipped Tests: {results.skipped}\n"
-        message += f"Broken Tests: {results.broken}\n"
-        message += f"Warnings: {results.warnings}\n"
-        message += f"Kernel Version: {results.kernel}\n"
-        message += f"CPU: {results.cpu}\n"
-        message += f"Machine Architecture: {results.arch}\n"
-        message += f"RAM: {results.ram}\n"
-        message += f"Swap memory: {results.swap}\n"
-        message += f"Distro: {results.distro}\n"
-        message += f"Distro Version: {results.distro_ver}\n"
-
-        self._print(message)
-
-    def suite_timeout(self, suite: Suite, timeout: float) -> None:
-        self._print(
-            f"Suite '{suite.name}' timed out after {timeout} seconds",
-            color=self.RED)
 
     def test_started(self, test: Test) -> None:
         self._print(f"{test.name}: ", end="")
@@ -259,47 +258,12 @@ class VerboseUserInterface(ConsoleUserInterface):
         self._buffer = ""
         self._line = ""
 
-        ltp.events.register("session_started", self.session_started)
-        ltp.events.register("session_stopped", self.session_stopped)
-        ltp.events.register("sut_start", self.sut_start)
-        ltp.events.register("sut_stop", self.sut_stop)
-        ltp.events.register("sut_restart", self.sut_restart)
         ltp.events.register("sut_stdout_line", self.sut_stdout_line)
         ltp.events.register("kernel_tained", self.kernel_tained)
         ltp.events.register("test_timed_out", self.test_timed_out)
-        ltp.events.register("suite_download_started",
-                            self.suite_download_started)
-        ltp.events.register("suite_started", self.suite_started)
-        ltp.events.register("suite_completed", self.suite_completed)
-        ltp.events.register("suite_timeout", self.suite_timeout)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
         ltp.events.register("test_stdout_line", self.test_stdout_line)
-
-    def session_started(self, tmpdir: str) -> None:
-        uname = platform.uname()
-        message = "Host information\n\n"
-        message += f"\tSystem: {uname.system}\n"
-        message += f"\tNode: {uname.node}\n"
-        message += f"\tKernel Release: {uname.release}\n"
-        message += f"\tKernel Version: {uname.version}\n"
-        message += f"\tMachine Architecture: {uname.machine}\n"
-        message += f"\tProcessor: {uname.processor}\n"
-        message += f"\n\tTemporary directory: {tmpdir}\n"
-
-        self._print(message)
-
-    def session_stopped(self) -> None:
-        self._print("Session stopped")
-
-    def sut_start(self, sut: str) -> None:
-        self._print(f"Connecting to SUT: {sut}")
-
-    def sut_stop(self, sut: str) -> None:
-        self._print(f"\nDisconnecting from SUT: {sut}")
-
-    def sut_restart(self, sut: str) -> None:
-        self._print(f"Restarting SUT: {sut}")
 
     def sut_stdout_line(self, _: str, data: bytes) -> None:
         self._buffer += data.decode(encoding="utf-8", errors="ignore")
@@ -315,40 +279,6 @@ class VerboseUserInterface(ConsoleUserInterface):
 
     def test_timed_out(self, _: Test, timeout: int) -> None:
         self._timed_out = True
-
-    def suite_download_started(
-            self,
-            name: str,
-            target: str) -> None:
-        self._print(f"Downloading suite: {target}")
-
-    def suite_started(self, suite: Suite) -> None:
-        self._print(f"Starting suite: {suite.name}")
-
-    def suite_completed(self, results: SuiteResults) -> None:
-        message = "\n"
-        message += f"Suite Name: {results.suite.name}\n"
-        message += f"Total Run: {len(results.suite.tests)}\n"
-        message += f"Elapsed Time: {results.exec_time:.1f} seconds\n"
-        message += f"Passed Tests: {results.passed}\n"
-        message += f"Failed Tests: {results.failed}\n"
-        message += f"Skipped Tests: {results.skipped}\n"
-        message += f"Broken Tests: {results.broken}\n"
-        message += f"Warnings: {results.warnings}\n"
-        message += f"Kernel Version: {results.kernel}\n"
-        message += f"CPU: {results.cpu}\n"
-        message += f"Machine Architecture: {results.arch}\n"
-        message += f"RAM: {results.ram}\n"
-        message += f"Swap memory: {results.swap}\n"
-        message += f"Distro: {results.distro}\n"
-        message += f"Distro Version: {results.distro_ver}\n"
-
-        self._print(message)
-
-    def suite_timeout(self, suite: Suite, timeout: float) -> None:
-        self._print(
-            f"Suite '{suite.name}' timed out after {timeout} seconds",
-            color=self.RED)
 
     def test_started(self, test: Test) -> None:
         self._print("\n===== ", end="")
