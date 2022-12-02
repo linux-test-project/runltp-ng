@@ -9,4 +9,4 @@ import os
 import sys
 
 # include runltp-ng library
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__))))
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
