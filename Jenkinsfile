@@ -15,27 +15,29 @@ pipeline {
     stage("Test host") {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-          sh 'pytest -n 8 -m "not qemu and not ssh" --junit-xml=results-host.xml'
+          sh 'coverage run -a -m pytest -m "not qemu and not ssh" --junit-xml=results-host.xml'
         }
       }
     }
     stage("Test SSH") {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-          sh 'pytest -n 8 -m "ssh" --junit-xml=results-ssh.xml'
+          sh 'coverage run -a -m pytest -m "ssh" --junit-xml=results-ssh.xml'
         }
       }
     }
     stage("Test Qemu") {
       steps {
         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-          sh 'pytest -m "qemu" --junit-xml=results-qemu.xml'
+          sh 'coverage run -a -m pytest -m "qemu" --junit-xml=results-qemu.xml'
         }
       }
     }
   }
   post {
     always {
+      sh 'coverage xml -o coverage.xml'
+      cobertura coberturaReportFile: 'coverage.xml'
       junit 'results-*.xml'
     }
   }

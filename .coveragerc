@@ -3,6 +3,8 @@ omit =
     *tests*
     *test_*
     *.tox*
+    ltp/ui.py
+    ltp/main.py
 
 [paths]
 source = ltp
