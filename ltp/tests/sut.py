@@ -1,8 +1,8 @@
 """
 Test SUT implementations.
 """
-import os
 import time
+import queue
 import pytest
 import logging
 import threading
@@ -145,7 +145,7 @@ class _TestSUT:
         sut.communicate(iobuffer=Printer())
 
         def _threaded():
-            time.sleep(1)
+            time.sleep(3)
 
             if force:
                 sut.force_stop(timeout=4, iobuffer=Printer())
@@ -155,9 +155,9 @@ class _TestSUT:
         thread = threading.Thread(target=_threaded, daemon=True)
         thread.start()
 
-        sut.run_command("sleep 20", timeout=25)
+        sut.run_command("sleep 5", timeout=7)
 
-        with Timeout(30) as timer:
+        with Timeout(7) as timer:
             while sut.is_running:
                 time.sleep(0.05)
                 timer.check()
