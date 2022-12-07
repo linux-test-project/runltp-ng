@@ -53,8 +53,8 @@ class Session:
 
     RC_OK = 0
     RC_ERROR = 1
-    RC_INTERRUPT = 2
-    RC_TIMEOUT = 4
+    RC_TIMEOUT = 124
+    RC_INTERRUPT = 130
 
     def __init__(
             self,
