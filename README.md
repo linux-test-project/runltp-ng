@@ -189,8 +189,7 @@ Python 3.6+ and it doesn't have any dependency from external packages.
 Its skeleton is easy to understand and features can be added easily.
 
 A missing feature that is currently under development is the possibility to
-remotely execute test suites. The most important services we are going to
-support are SSH and LTX (experimental).
+execute tests via LTX (experimental).
 
 LTX is a small service that runs on target and it permits to communicate via
 msgpack (https://msgpack.org/) in order to execute binaries on host in the
