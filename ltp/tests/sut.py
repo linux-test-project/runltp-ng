@@ -6,12 +6,13 @@ import queue
 import pytest
 import logging
 import threading
+from ltp.sut import IOBuffer
 from ltp.sut import SUTError
 from ltp.sut import SUTTimeoutError
 from ltp.utils import Timeout
 
 
-class Printer:
+class Printer(IOBuffer):
     """
     stdout printer.
     """
@@ -20,9 +21,8 @@ class Printer:
         self._logger = logging.getLogger("test.host")
         self._line = ""
 
-    def write(self, data):
-        data_str = data.decode(encoding="utf-8", errors="replace")
-        print(data_str, end="")
+    def write(self, data: str) -> None:
+        print(data, end="")
 
     def flush(self):
         pass

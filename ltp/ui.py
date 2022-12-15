@@ -79,19 +79,17 @@ class ConsoleUserInterface:
 
         return uf_time
 
-    def _print_stdout(self, data: bytes) -> None:
+    def _print_stdout(self, data: str) -> None:
         """
         Print stdout coming from command run or test.
         """
-        data_str = data.decode(encoding="utf-8", errors="replace")
-
-        if len(data_str) == 1:
-            self._line += data_str
-            if data_str == "\n":
+        if len(data) == 1:
+            self._line += data
+            if data == "\n":
                 self._print(self._line, end='')
                 self._line = ""
         else:
-            lines = data_str.splitlines(True)
+            lines = data.splitlines(True)
             if len(lines) > 0:
                 for line in lines[:-1]:
                     self._line += line
@@ -101,7 +99,7 @@ class ConsoleUserInterface:
 
                 self._line = lines[-1]
 
-            if data_str.endswith('\n') and self._line:
+            if data.endswith('\n') and self._line:
                 self._print(self._line, end='')
                 self._line = ""
 
@@ -133,7 +131,7 @@ class ConsoleUserInterface:
     def run_cmd_start(self, cmd: str) -> None:
         self._print(f"{cmd}", color=self.CYAN)
 
-    def run_cmd_stdout(self, data: bytes) -> None:
+    def run_cmd_stdout(self, data: str) -> None:
         self._print_stdout(data)
 
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
@@ -274,7 +272,7 @@ class VerboseUserInterface(ConsoleUserInterface):
         ltp.events.register("test_completed", self.test_completed)
         ltp.events.register("test_stdout_line", self.test_stdout_line)
 
-    def sut_stdout_line(self, _: str, data: bytes) -> None:
+    def sut_stdout_line(self, _: str, data: str) -> None:
         self._print_stdout(data)
 
     def kernel_tained(self, message: str) -> None:

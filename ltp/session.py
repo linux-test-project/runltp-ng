@@ -36,7 +36,7 @@ class Printer(IOBuffer):
         self._sut = sut
         self._is_cmd = is_cmd
 
-    def write(self, data: bytes) -> None:
+    def write(self, data: str) -> None:
         if self._is_cmd:
             ltp.events.fire("run_cmd_stdout", data)
         else:

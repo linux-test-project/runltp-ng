@@ -220,7 +220,7 @@ class QemuSUT(SUT):
 
         return exec_time
 
-    def _read_stdout(self, size: int, iobuffer: IOBuffer) -> bytes:
+    def _read_stdout(self, size: int, iobuffer: IOBuffer) -> str:
         """
         Read data from stdout.
         """
@@ -228,14 +228,13 @@ class QemuSUT(SUT):
             return None
 
         data = os.read(self._proc.stdout.fileno(), size)
+        rdata = data.decode(encoding="utf-8", errors="replace")
+        rdata = rdata.replace('\r', '')
 
         # write on stdout buffers
         if iobuffer:
-            iobuffer.write(data)
+            iobuffer.write(rdata)
             iobuffer.flush()
-
-        rdata = data.decode(encoding="utf-8", errors="replace")
-        rdata = rdata.replace('\r', '')
 
         return rdata
 

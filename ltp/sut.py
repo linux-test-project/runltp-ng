@@ -32,7 +32,7 @@ class IOBuffer:
     IO stdout buffer. The API is similar to ``IO`` types.
     """
 
-    def write(self, data: bytes) -> None:
+    def write(self, data: str) -> None:
         """
         Write data.
         """

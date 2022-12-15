@@ -174,19 +174,17 @@ class StdoutChecker(IOBuffer):
         self._test = test
         self._line = ""
 
-    def write(self, data: bytes) -> None:
-        data_str = data.decode(encoding="utf-8", errors="replace")
-
-        if len(data_str) == 1:
-            self._line += data_str
-            if data_str == "\n":
+    def write(self, data: str) -> None:
+        if len(data) == 1:
+            self._line += data
+            if data == "\n":
                 ltp.events.fire(
                     "test_stdout_line",
                     self._test,
                     self._line[:-1])
                 self._line = ""
         else:
-            lines = data_str.split('\n')
+            lines = data.split('\n')
             for line in lines[:-1]:
                 self._line += line
                 ltp.events.fire("test_stdout_line", self._test, self._line)
@@ -194,11 +192,11 @@ class StdoutChecker(IOBuffer):
 
             self._line = lines[-1]
 
-            if data_str.endswith('\n') and self._line:
+            if data.endswith('\n') and self._line:
                 ltp.events.fire("test_stdout_line", self._test, self._line)
                 self._line = ""
 
-        self.stdout += data_str
+        self.stdout += data
 
     def flush(self) -> None:
         pass
@@ -212,7 +210,7 @@ class RedirectStdout(IOBuffer):
     def __init__(self, sut: SUT) -> None:
         self._sut = sut
 
-    def write(self, data: bytes) -> None:
+    def write(self, data: str) -> None:
         if not self._sut:
             return
 

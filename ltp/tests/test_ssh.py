@@ -78,9 +78,9 @@ class _TestSSHSUT(_TestSUT):
         sut.communicate()
 
         class MyBuffer(IOBuffer):
-            data = bytes()
+            data = ""
 
-            def write(self, data: bytes) -> None:
+            def write(self, data: str) -> None:
                 self.data = data
                 # wait for data inside the buffer
                 time.sleep(0.1)
