@@ -234,7 +234,11 @@ class SSHSUT(SUT):
 
                         data = os.read(stdout, 1024)
                         if iobuffer:
-                            iobuffer.write(data)
+                            rdata = data.decode(
+                                encoding="utf-8",
+                                errors="ignore")
+
+                            iobuffer.write(rdata)
                             iobuffer.flush()
 
                     if proc.poll() is not None:
@@ -341,8 +345,7 @@ class SSHSUT(SUT):
 
                     stdout_str += line
                     if iobuffer:
-                        data = line.encode(encoding='utf-8')
-                        iobuffer.write(data)
+                        iobuffer.write(line)
                         iobuffer.flush()
 
                 t_end = time.time() - t_start
