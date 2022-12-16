@@ -91,7 +91,7 @@ class _TestSSHSUT(_TestSUT):
         buffer = MyBuffer()
         sut.stop(timeout=1, iobuffer=buffer)
 
-        assert buffer.data == b'ciao\n'
+        assert buffer.data == 'ciao\n'
 
     @pytest.mark.parametrize("enable", ["0", "1"])
     def test_sudo(self, config, enable):
