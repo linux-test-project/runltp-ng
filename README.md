@@ -164,7 +164,7 @@ The tool provided results in a machine parsable format which were easy to
 consume by automation systems.
 However as the community didn't like the choice of Perl programming language we
 decided to switch from Perl to Python to take advantage of the Python community
-size, easier maintenance and packages (https://github.com/acerv/runltp-ng).
+size, easier maintenance and packages.
 
 In particular, we tried to focus on missing features and got rid of the ones
 which were not strictly needed. We ended up with a simple and light tool having
