@@ -50,7 +50,12 @@ class Test:
     Test definition class.
     """
 
-    def __init__(self, name: str, cmd: str, args: list) -> None:
+    def __init__(
+            self,
+            name: str,
+            cmd: str,
+            args: list,
+            parallelizable: bool = False) -> None:
         """
         :param name: name of the test
         :type name: str
@@ -58,16 +63,20 @@ class Test:
         :type cmd: str
         :param args: list of arguments
         :type args: list(str)
+        :param parallelizable: if True, test can be run in parallel
+        :type parallelizable: bool
         """
         self._name = name
         self._cmd = cmd
         self._args = args
+        self._parallelizable = parallelizable
 
     def __repr__(self) -> str:
         return \
             f"name: '{self._name}', " \
             f"commmand: '{self._cmd}', " \
-            f"arguments: {self._args}"
+            f"arguments: {self._args}, " \
+            f"parallelizable: {self._parallelizable}"
 
     @property
     def name(self):
@@ -90,20 +99,50 @@ class Test:
         """
         return self._args
 
+    @property
+    def parallelizable(self):
+        """
+        If True, test can be run in parallel.
+        """
+        return self._parallelizable
 
-def read_runtest(suite_name: str, content: str) -> Suite:
+
+PARALLEL_BLACKLIST = [
+    "needs_root",
+    "needs_device",
+    "mount_device",
+    "mntpoint",
+    "resource_file",
+    "format_device",
+    "save_restore",
+    "max_runtime"
+]
+
+
+# pylint: disable=too-many-locals
+def read_runtest(
+        suite_name: str,
+        content: str,
+        metadata: dict = None) -> Suite:
     """
     It reads a runtest file content and it returns a Suite object.
     :param suite_name: name of the test suite
     :type suite_name: str
     :param content: content of the runtest file
     :type content: str
+    :param metadata: metadata JSON file content
+    :type metadata: dict
     :returns: Suite
     """
     if not content:
         raise ValueError("content is empty")
 
-    LOGGER.info("collecting testing suite: %s", suite_name)
+    LOGGER.info("Collecting testing suite: %s", suite_name)
+
+    metadata_tests = None
+    if metadata:
+        LOGGER.info("Reading metadata content")
+        metadata_tests = metadata.get("tests", None)
 
     tests = []
     lines = content.split('\n')
@@ -111,7 +150,7 @@ def read_runtest(suite_name: str, content: str) -> Suite:
         if not line.strip() or line.strip().startswith("#"):
             continue
 
-        LOGGER.debug("test declaration: %s", line)
+        LOGGER.debug("Test declaration: %s", line)
 
         parts = line.split()
         if len(parts) < 2:
@@ -124,16 +163,47 @@ def read_runtest(suite_name: str, content: str) -> Suite:
         if len(parts) >= 3:
             test_args = parts[2:]
 
-        test = Test(test_name, test_cmd, test_args)
+        parallelizable = True
+
+        if not metadata_tests:
+            # no metadata no party
+            parallelizable = False
+        else:
+            test_params = metadata_tests.get(test_name, None)
+            if test_params:
+                LOGGER.info("Found %s test params in metadata", test_name)
+                LOGGER.debug("params=%s", test_params)
+
+            if test_params is None:
+                # this probably means test is not using new LTP API,
+                # so we can't decide if test can run in parallel or not
+                parallelizable = False
+            else:
+                for blacklist_param in PARALLEL_BLACKLIST:
+                    if blacklist_param in test_params:
+                        parallelizable = False
+                        break
+
+        if not parallelizable:
+            LOGGER.info("Test '%s' is not parallelizable", test_name)
+        else:
+            LOGGER.info("Test '%s' is parallelizable", test_name)
+
+        test = Test(
+            test_name,
+            test_cmd,
+            test_args,
+            parallelizable=parallelizable)
+
         tests.append(test)
 
-        LOGGER.debug("test: %s", test)
+        LOGGER.debug("Test: %s", test)
 
-    LOGGER.debug("collected tests: %d", len(tests))
+    LOGGER.debug("Collected tests: %d", len(tests))
 
     suite = Suite(suite_name, tests)
 
     LOGGER.debug(suite)
-    LOGGER.info("collected testing suite: %s", suite_name)
+    LOGGER.info("Collected testing suite: %s", suite_name)
 
     return suite

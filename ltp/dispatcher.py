@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import time
+import json
 import logging
 import threading
 import ltp
@@ -282,6 +283,12 @@ class SerialDispatcher(Dispatcher):
         """
         suites_obj = []
 
+        metadata_path = os.path.join(self._ltpdir, "metadata", "ltp.json")
+        metadata_json = None
+        if os.path.isfile(metadata_path):
+            with open(metadata_path, 'r', encoding='utf-8') as metadata:
+                metadata_json = json.loads(metadata.read())
+
         for suite_name in suites:
             target = os.path.join(self._ltpdir, "runtest", suite_name)
 
@@ -300,7 +307,10 @@ class SerialDispatcher(Dispatcher):
                 suite_name,
                 target)
 
-            suite = ltp.data.read_runtest(suite_name, data_str)
+            suite = ltp.data.read_runtest(
+                suite_name,
+                data_str,
+                metadata=metadata_json)
             suites_obj.append(suite)
 
         return suites_obj
