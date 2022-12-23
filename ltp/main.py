@@ -257,7 +257,7 @@ def run() -> None:
         "-s",
         default="host",
         type=_sut_config,
-        help="System Under Test parameters")
+        help="System Under Test parameters, for help see -s help")
     parser.add_argument(
         "--json-report",
         "-j",
