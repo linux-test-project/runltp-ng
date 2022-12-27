@@ -33,7 +33,7 @@ class HostSUT(SUT):
         self._initialized = False
         self._cmd_lock = threading.Lock()
         self._fetch_lock = threading.Lock()
-        self._proc = None
+        self._procs = []
         self._stop = False
         self._cwd = None
         self._env = None
@@ -85,18 +85,23 @@ class HostSUT(SUT):
 
         self._stop = True
 
-        if self._proc:
-            self._logger.info("Terminating process with %s", sig)
-            self._proc.send_signal(sig)
-
         with Timeout(timeout) as timer:
+            if self._procs:
+                self._logger.info(
+                    "Terminating %d process(es) with %s",
+                    len(self._procs), sig)
+
+                for proc in self._procs:
+                    proc.send_signal(sig)
+
+                    while proc.poll() is None:
+                        time.sleep(1e-6)
+                        timer.check(
+                            err_msg="Timeout waiting for command to stop")
+
             while self._fetch_lock.locked():
                 time.sleep(1e-6)
-                timer.check(err_msg="Timeout waiting for command to stop")
-
-            while self._cmd_lock.locked():
-                time.sleep(1e-6)
-                timer.check(err_msg="Timeout waiting for command to stop")
+                timer.check(err_msg="Timeout waiting to fetch file")
 
         self._logger.info("Process terminated")
 
@@ -114,14 +119,18 @@ class HostSUT(SUT):
             iobuffer: IOBuffer = None) -> None:
         self._inner_stop(signal.SIGKILL, timeout)
 
-    def _read_stdout(self, size: int, iobuffer: IOBuffer = None) -> str:
+    def _read_stdout(
+            self,
+            proc: subprocess.Popen,
+            size: int,
+            iobuffer: IOBuffer = None) -> str:
         """
         Read data from stdout.
         """
         if not self.is_running:
             return None
 
-        data = os.read(self._proc.stdout.fileno(), size)
+        data = os.read(proc.stdout.fileno(), size)
         rdata = data.decode(encoding="utf-8", errors="replace")
         rdata = rdata.replace('\r', '')
 
@@ -143,82 +152,82 @@ class HostSUT(SUT):
         if not self.is_running:
             raise SUTError("SUT is not running")
 
-        with self._cmd_lock:
-            t_secs = max(timeout, 0)
+        t_secs = max(timeout, 0)
 
-            self._logger.info("Executing command (timeout=%d): %s",
-                              t_secs,
-                              command)
+        self._logger.info(
+            "Executing command (timeout=%.3f): %s",
+            t_secs,
+            command)
 
-            # pylint: disable=consider-using-with
-            self._proc = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                cwd=self._cwd,
-                env=self._env,
-                shell=True)
+        # pylint: disable=consider-using-with
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=self._cwd,
+            env=self._env,
+            shell=True)
 
-            ret = None
-            t_start = time.time()
-            t_end = 0
-            stdout = ""
+        self._procs.append(proc)
 
-            try:
-                poller = select.epoll()
-                poller.register(
-                    self._proc.stdout.fileno(),
-                    select.POLLIN |
-                    select.POLLPRI |
-                    select.POLLHUP |
-                    select.POLLERR)
+        ret = None
+        t_start = time.time()
+        t_end = 0
+        stdout = ""
 
-                with Timeout(timeout) as timer:
-                    while True:
-                        events = poller.poll(0.1)
-                        for fdesc, _ in events:
-                            if fdesc != self._proc.stdout.fileno():
-                                break
+        try:
+            poller = select.epoll()
+            poller.register(
+                proc.stdout.fileno(),
+                select.POLLIN |
+                select.POLLPRI |
+                select.POLLHUP |
+                select.POLLERR)
 
-                            data = self._read_stdout(1024, iobuffer)
-                            if data:
-                                stdout += data
-
-                        if self._proc.poll() is not None:
+            with Timeout(timeout) as timer:
+                while True:
+                    events = poller.poll(0.1)
+                    for fdesc, _ in events:
+                        if fdesc != proc.stdout.fileno():
                             break
 
-                        timer.check(
-                            err_msg="Timeout during command execution",
-                            exc=SUTTimeoutError)
+                        data = self._read_stdout(proc, 1024, iobuffer)
+                        if data:
+                            stdout += data
 
-                t_end = time.time() - t_start
-
-                # once the process stopped, we still might have some data
-                # inside the stdout buffer
-                while not self._stop:
-                    data = self._read_stdout(1024, iobuffer)
-                    if not data:
+                    if proc.poll() is not None:
                         break
 
-                    stdout += data
-            except subprocess.TimeoutExpired as err:
-                self._proc.kill()
-                raise SUTError(err)
-            finally:
-                ret = {
-                    "command": command,
-                    "stdout": stdout,
-                    "returncode": self._proc.returncode,
-                    "timeout": t_secs,
-                    "exec_time": t_end,
-                }
+                    timer.check(
+                        err_msg="Timeout during command execution",
+                        exc=SUTTimeoutError)
 
-                self._logger.debug("return data=%s", ret)
-                self._proc = None
+            t_end = time.time() - t_start
 
-            self._logger.info("Command executed")
+            # once the process stopped, we still might have some data
+            # inside the stdout buffer
+            while not self._stop:
+                data = self._read_stdout(proc, 1024, iobuffer)
+                if not data:
+                    break
 
-            return ret
+                stdout += data
+        finally:
+            self._procs.remove(proc)
+
+            ret = {
+                "command": command,
+                "stdout": stdout,
+                "returncode": proc.returncode,
+                "timeout": t_secs,
+                "exec_time": t_end,
+            }
+
+            self._logger.debug("return data=%s", ret)
+
+        self._logger.info("Command executed")
+
+        return ret
 
     def fetch_file(
             self,
