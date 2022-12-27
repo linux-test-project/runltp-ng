@@ -172,39 +172,6 @@ class SUT:
         """
         raise NotImplementedError()
 
-    def run_multiple_commands(self,
-                              commands: list,
-                              timeout: float = 3600,
-                              command_completed: callable = None) -> list:
-        """
-        Run multiple commands in parallel on target.
-        :param commands: commands to execute
-        :type commands: list(str)
-        :param timeout: timeout before stopping execution. Default is 3600
-        :type timeout: float
-        :param command_completed: function called when a test has completed.
-            Its definition is `command_completed(ret: set)` where ret has the
-            same definition of data returned by `run_multiple_commands` inside
-            the list.
-        :type command_completed: callable
-        :returns: list of (dict, Exception) containing command execution
-            information and exception.
-
-            [
-                ({
-                    "command": <str>,
-                    "timeout": <float>,
-                    "returncode": <int>,
-                    "stdout": <str>,
-                    "exec_time": <float>,
-                }, None)
-                ...
-            ]
-
-            If None is returned, then callback failed.
-        """
-        raise NotImplementedError()
-
     def fetch_file(
             self,
             target_path: str,

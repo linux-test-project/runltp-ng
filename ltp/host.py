@@ -6,7 +6,6 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import os
-import abc
 import time
 import select
 import signal
@@ -220,14 +219,6 @@ class HostSUT(SUT):
             self._logger.info("Command executed")
 
             return ret
-
-    @abc.abstractmethod
-    def run_multiple_commands(
-            self,
-            commands: list,
-            timeout: float = 3600,
-            command_completed: callable = None) -> list:
-        pass
 
     def fetch_file(
             self,

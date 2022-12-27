@@ -6,7 +6,6 @@
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
 import os
-import abc
 import time
 import select
 import socket
@@ -378,14 +377,6 @@ class SSHSUT(SUT):
             self._logger.debug(ret)
 
             return ret
-
-    @abc.abstractmethod
-    def run_multiple_commands(
-            self,
-            commands: list,
-            timeout: float = 3600,
-            command_completed: callable = None) -> list:
-        pass
 
     def fetch_file(
             self,
