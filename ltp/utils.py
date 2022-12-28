@@ -41,6 +41,9 @@ class Timeout:
         """
         Check if time is out.
         """
+        if not self._end:
+            self._end = time.time() + self._timeout
+
         if self._end > time.time():
             return
 

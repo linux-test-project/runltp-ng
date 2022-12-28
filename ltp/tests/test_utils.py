@@ -55,3 +55,11 @@ class TestTimeout:
             with Timeout(0.01) as timeout:
                 time.sleep(0.01)
                 timeout.check(err_msg='error message', exc=TimeoutError)
+
+    def test_no_with(self):
+        """
+        Test class without 'with' block.
+        """
+        timeout = Timeout(1)
+        time.sleep(0.01)
+        timeout.check()
