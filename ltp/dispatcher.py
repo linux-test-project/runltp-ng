@@ -329,19 +329,20 @@ class SerialDispatcher(Dispatcher):
         """
         self._logger.info("Writing test information on /dev/kmsg")
 
-        if os.geteuid() != 0:
+        ret = self._sut.run_command("id -u", timeout=10)
+        if ret["stdout"] != "0\n":
             self._logger.info("Can't write on /dev/kmsg from user")
             return
 
-        with open('/dev/kmsg', 'w', encoding='utf-8') as kmsg:
-            cmd = f"{test.command}"
-            if len(test.arguments) > 0:
-                cmd += ' '
-                cmd += ' '.join(test.arguments)
+        cmd = f"{test.command}"
+        if len(test.arguments) > 0:
+            cmd += ' '
+            cmd += ' '.join(test.arguments)
 
-            kmsg.write(
-                f'{sys.argv[0]}[{os.getpid()}]: '
-                f'starting test {test.name} ({cmd})\n')
+        message = f'{sys.argv[0]}[{os.getpid()}]: ' \
+            f'starting test {test.name} ({cmd})\n'
+
+        self._sut.run_command(f'echo -n "{message}" > /dev/kmsg', timeout=10)
 
     def _run_test(self, test: Test) -> TestResults:
         """
