@@ -116,6 +116,27 @@ Once a new SUT class is implemented and placed inside the `ltp` package folder,
 `runltp-ng -s help` command can be used to see if application correctly
 recognise it.
 
+Parallel execution
+==================
+
+The tool now supports a new experimental feature that is implemented inside the
+`altp` folder. This particular feature permits to execute multiple tests in
+parallel when using host execution or SSH protocol.
+
+To enable the new parallel execution feature, please set the `ASYNC_RUN` flag
+as following:
+
+    # run syscalls testing suite in parallel on host using 16 workers
+    ASYNC_RUN=1 ./runltp-ng --run-suite syscalls --workers 16
+
+    # run syscalls testing suite in parallel via SSH using 16 workers
+    # NOTE: asyncssh package must be installed in the system
+    ./runltp-ng --sut=ssh:host myhost.com:user=root:key_file=myhost_id_rsa \
+        --run-suite syscalls --workers 16
+
+Unfortunately, `paramiko` doesn't support parallel commands execution, so we
+switched into `asyncssh` library that is also way more easy to use.
+
 Development
 ===========
 
