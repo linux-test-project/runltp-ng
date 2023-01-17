@@ -360,12 +360,12 @@ class SerialDispatcher(Dispatcher):
 
         test_data = None
 
-        # check for tained kernel status
-        tained_code_before, tained_msg_before = self._sut.get_tained_info()
-        if tained_msg_before:
-            for msg in tained_msg_before:
-                ltp.events.fire("kernel_tained", msg)
-                self._logger.debug("Kernel tained before test: %s", msg)
+        # check for tainted kernel status
+        tainted_code_before, tainted_msg_before = self._sut.get_tainted_info()
+        if tainted_msg_before:
+            for msg in tainted_msg_before:
+                ltp.events.fire("kernel_tainted", msg)
+                self._logger.debug("Kernel tainted before test: %s", msg)
 
         timed_out = False
         reboot = False
@@ -396,14 +396,15 @@ class SerialDispatcher(Dispatcher):
             self._logger.debug("Kernel panic recognized")
 
         if not reboot:
-            # check again for tained kernel and if tained status has changed
+            # check again for tainted kernel and if tainted status has changed
             # just raise an exception and reboot the SUT
-            tained_code_after, tained_msg_after = self._sut.get_tained_info()
-            if tained_code_before != tained_code_after:
+            tainted_code_after, tainted_msg_after = \
+                self._sut.get_tainted_info()
+            if tainted_code_before != tainted_code_after:
                 reboot = True
-                for msg in tained_msg_after:
-                    ltp.events.fire("kernel_tained", msg)
-                    self._logger.debug("Kernel tained after test: %s", msg)
+                for msg in tainted_msg_after:
+                    ltp.events.fire("kernel_tainted", msg)
+                    self._logger.debug("Kernel tainted after test: %s", msg)
 
         if timed_out:
             test_data = {

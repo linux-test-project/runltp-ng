@@ -45,7 +45,7 @@ class IOBuffer:
         raise NotImplementedError()
 
 
-TAINED_MSG = [
+TAINTED_MSG = [
     "proprietary module was loaded",
     "module was force loaded",
     "kernel running on an out of specification system",
@@ -242,25 +242,25 @@ class SUT:
 
         return ret
 
-    def get_tained_info(self) -> set:
+    def get_tainted_info(self) -> set:
         """
-        Return information about kernel if tained.
+        Return information about kernel if tainted.
         :returns: set(int, list[str]),
         """
         ret = self.run_command("cat /proc/sys/kernel/tainted", timeout=3)
         if ret["returncode"] != 0:
-            raise SUTError("Can't read tained kernel information")
+            raise SUTError("Can't read tainted kernel information")
 
         stdout = ret["stdout"].rstrip()
 
-        tained_num = len(TAINED_MSG)
+        tainted_num = len(TAINTED_MSG)
         code = int(stdout.rstrip())
-        bits = format(code, f"0{tained_num}b")[::-1]
+        bits = format(code, f"0{tainted_num}b")[::-1]
 
         messages = []
-        for i in range(0, tained_num):
+        for i in range(0, tainted_num):
             if bits[i] == "1":
-                msg = TAINED_MSG[i]
+                msg = TAINTED_MSG[i]
                 messages.append(msg)
 
         return code, messages

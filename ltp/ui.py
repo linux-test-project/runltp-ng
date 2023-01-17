@@ -192,12 +192,12 @@ class SimpleUserInterface(ConsoleUserInterface):
 
         self._sut_not_responding = False
         self._kernel_panic = False
-        self._kernel_tained = None
+        self._kernel_tainted = None
         self._timed_out = False
 
         ltp.events.register("sut_not_responding", self.sut_not_responding)
         ltp.events.register("kernel_panic", self.kernel_panic)
-        ltp.events.register("kernel_tained", self.kernel_tained)
+        ltp.events.register("kernel_tainted", self.kernel_tainted)
         ltp.events.register("test_timed_out", self.test_timed_out)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
@@ -208,8 +208,8 @@ class SimpleUserInterface(ConsoleUserInterface):
     def kernel_panic(self) -> None:
         self._kernel_panic = True
 
-    def kernel_tained(self, message: str) -> None:
-        self._kernel_tained = message
+    def kernel_tainted(self, message: str) -> None:
+        self._kernel_tainted = message
 
     def test_timed_out(self, _: Test, timeout: int) -> None:
         self._timed_out = True
@@ -242,16 +242,16 @@ class SimpleUserInterface(ConsoleUserInterface):
 
             self._print(msg, color=col, end="")
 
-            if self._kernel_tained:
+            if self._kernel_tainted:
                 self._print(" | ", end="")
-                self._print("tained", color=self.YELLOW, end="")
+                self._print("tainted", color=self.YELLOW, end="")
 
             uf_time = self._user_friendly_duration(results.exec_time)
             self._print(f"  ({uf_time})")
 
         self._sut_not_responding = False
         self._kernel_panic = False
-        self._kernel_tained = None
+        self._kernel_tainted = None
         self._timed_out = False
 
 
@@ -266,7 +266,7 @@ class VerboseUserInterface(ConsoleUserInterface):
         self._timed_out = False
 
         ltp.events.register("sut_stdout_line", self.sut_stdout_line)
-        ltp.events.register("kernel_tained", self.kernel_tained)
+        ltp.events.register("kernel_tainted", self.kernel_tainted)
         ltp.events.register("test_timed_out", self.test_timed_out)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
@@ -275,7 +275,7 @@ class VerboseUserInterface(ConsoleUserInterface):
     def sut_stdout_line(self, _: str, data: str) -> None:
         self._print_stdout(data)
 
-    def kernel_tained(self, message: str) -> None:
+    def kernel_tainted(self, message: str) -> None:
         self._print(f"Tained kernel: {message}", color=self.YELLOW)
 
     def test_timed_out(self, _: Test, timeout: int) -> None:

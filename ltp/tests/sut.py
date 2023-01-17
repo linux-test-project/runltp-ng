@@ -71,12 +71,12 @@ class _TestSUT:
         assert info["kernel"]
         assert info["arch"]
 
-    def test_get_tained_info(self, sut):
+    def test_get_tainted_info(self, sut):
         """
-        Test get_tained_info.
+        Test get_tainted_info.
         """
         sut.communicate(iobuffer=Printer())
-        code, messages = sut.get_tained_info()
+        code, messages = sut.get_tainted_info()
 
         assert code >= 0
         assert isinstance(messages, list)

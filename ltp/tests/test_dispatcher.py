@@ -131,7 +131,7 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         try:
             with pytest.raises(ValueError):
@@ -152,7 +152,7 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         try:
             results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
@@ -194,7 +194,7 @@ class TestSerialDispatcher:
 
         ltp.events.register("test_started", stop_exec_suites)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         results = dispatcher.exec_suites(suites=["dirsuite0", "dirsuite2"])
 
@@ -212,7 +212,7 @@ class TestSerialDispatcher:
             ltpdir=str(tmpdir / "ltp"),
             sut=sut)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         try:
             results = dispatcher.exec_suites(suites=[
@@ -289,7 +289,7 @@ class TestSerialDispatcher:
             suite_timeout=0.5,
             test_timeout=15)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         try:
             with pytest.raises(SuiteTimeoutError):
@@ -315,7 +315,7 @@ class TestSerialDispatcher:
             suite_timeout=15,
             test_timeout=0.5)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         try:
             ret = dispatcher.exec_suites(suites=["sleepsuite"])
@@ -325,9 +325,9 @@ class TestSerialDispatcher:
         assert ret[0].tests_results[0].return_code == -1
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_kernel_tained(self, tmpdir, sut):
+    def test_kernel_tainted(self, tmpdir, sut):
         """
-        Test tained kernel recognition.
+        Test tainted kernel recognition.
         """
         ltpdir = tmpdir / "ltp"
 
@@ -338,25 +338,25 @@ class TestSerialDispatcher:
             suite_timeout=0.5,
             test_timeout=15)
 
-        class TainChecker:
+        class TaintChecker:
             def __init__(self, dispatcher, bit, msg) -> None:
                 self._dispatcher = dispatcher
                 self._bit = bit
                 self._msg = msg
                 self._first = True
-                self.tained_msg = queue.Queue()
+                self.tainted_msg = queue.Queue()
                 self.rebooted = queue.Queue()
 
-            def kernel_tained(self, msg: str):
+            def kernel_tainted(self, msg: str):
                 if self._first:
                     self._first = False
 
-                    # now we change tained information to trigger
+                    # now we change tainted information to trigger
                     # sut_restart event
-                    sut.get_tained_info = MagicMock(
+                    sut.get_tainted_info = MagicMock(
                         return_value=(self._bit, [self._msg]))
                 else:
-                    self.tained_msg.put(msg)
+                    self.tainted_msg.put(msg)
 
             def sut_restart(self, name: str):
                 self.rebooted.put(True)
@@ -364,20 +364,20 @@ class TestSerialDispatcher:
         try:
             for i in range(0, 18):
                 bit = math.pow(2, i)
-                msg = ltp.sut.TAINED_MSG[i]
+                msg = ltp.sut.TAINTED_MSG[i]
 
-                sut.get_tained_info = MagicMock(return_value=(0, [""]))
+                sut.get_tainted_info = MagicMock(return_value=(0, [""]))
 
-                checker = TainChecker(dispatcher, bit, msg)
-                ltp.events.register("kernel_tained", checker.kernel_tained)
+                checker = TaintChecker(dispatcher, bit, msg)
+                ltp.events.register("kernel_tainted", checker.kernel_tainted)
                 ltp.events.register("sut_restart", checker.sut_restart)
 
                 dispatcher.exec_suites(suites=["dirsuite0"])
 
-                assert checker.tained_msg.get() == msg
+                assert checker.tainted_msg.get() == msg
                 assert checker.rebooted.get()
 
-                ltp.events.unregister("kernel_tained")
+                ltp.events.unregister("kernel_tainted")
                 ltp.events.unregister("sut_restart")
         finally:
             sut.stop()
@@ -404,7 +404,7 @@ class TestSerialDispatcher:
             suite_timeout=10,
             test_timeout=10)
 
-        sut.get_tained_info = MagicMock(return_value=(0, ""))
+        sut.get_tainted_info = MagicMock(return_value=(0, ""))
 
         class PanicChecker:
             def __init__(self) -> None:
