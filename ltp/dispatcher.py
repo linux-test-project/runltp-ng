@@ -317,9 +317,10 @@ class SerialDispatcher(Dispatcher):
         else:
             self._sut.stop(timeout=360)
 
-        self._sut.communicate(
+        self._sut.ensure_communicate(
             timeout=3600,
-            iobuffer=RedirectStdout(self._sut))
+            iobuffer=RedirectStdout(self._sut),
+            force=force)
 
         self._logger.info("SUT rebooted")
 

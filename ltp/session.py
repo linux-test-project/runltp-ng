@@ -185,7 +185,7 @@ class Session:
 
         ltp.events.fire("sut_start", sut.name)
 
-        sut.communicate(
+        sut.ensure_communicate(
             timeout=3600,
             iobuffer=Printer(sut, False))
 

@@ -90,6 +90,17 @@ class _TestSUT:
             sut.communicate(iobuffer=Printer())
         sut.stop()
 
+    def test_ensure_communicate(self, sut):
+        """
+        Test ensure_communicate method.
+        """
+        sut.ensure_communicate(iobuffer=Printer())
+        with pytest.raises(SUTError):
+            sut.ensure_communicate(iobuffer=Printer(), retries=1)
+
+        sut.ensure_communicate(iobuffer=Printer(), retries=10)
+        sut.stop()
+
     @pytest.fixture
     def sut_stop_sleep(self, request):
         """
