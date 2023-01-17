@@ -186,6 +186,44 @@ class SUT:
         """
         raise NotImplementedError()
 
+    def ensure_communicate(
+            self,
+            timeout: float = 3600,
+            iobuffer: IOBuffer = None,
+            retries: int = 10,
+            force: bool = False) -> None:
+        """
+        Ensure that `communicate` is completed, retrying as many times we
+        want in case of `LTPException` error. After each `communicate` error
+        the SUT is stopped and a new communication is tried.
+        :param timeout: timeout to complete communication in seconds
+        :type timeout: float
+        :param iobuffer: buffer used to write SUT stdout
+        :type iobuffer: IOBuffer
+        :param retries: number of times we retry communicating with SUT
+        :type retries: int
+        :param force: use `force_stop` instead of `stop` before communicating
+            again with the SUT
+        :type force: bool
+        """
+        retries = max(retries, 1)
+
+        for retry in range(retries):
+            try:
+                self.communicate(
+                    timeout=timeout,
+                    iobuffer=iobuffer)
+
+                break
+            except LTPException as err:
+                if retry >= retries - 1:
+                    raise err
+
+                if force:
+                    self.force_stop(timeout=timeout, iobuffer=iobuffer)
+                else:
+                    self.stop(timeout=timeout, iobuffer=iobuffer)
+
     def get_info(self) -> dict:
         """
         Return SUT information.

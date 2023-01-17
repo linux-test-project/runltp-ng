@@ -495,7 +495,10 @@ class QemuSUT(SUT):
                     self._wait_for("Password:", 5, iobuffer)
                     self._write_stdin(f"{self._password}\n")
 
+                time.sleep(0.2)
+
                 self._wait_for("#", 5, iobuffer)
+                time.sleep(0.2)
 
                 self._write_stdin("stty -echo; stty cols 1024\n")
                 self._wait_for("#", 5, None)
