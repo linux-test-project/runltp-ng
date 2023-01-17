@@ -13,6 +13,10 @@ import sys
 
 # include ltp library
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(
+    os.path.dirname(__file__),
+    "runltp-ng.d")
+))
 
 if __name__ == "__main__":
     import ltp.main
