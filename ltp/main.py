@@ -90,6 +90,20 @@ def _sut_config(value: str) -> dict:
     return config
 
 
+def _env_config(value: str) -> dict:
+    """
+    Return an environment configuration dictionary, parsing strings such as
+    "key=value:key=value:key=value".
+    """
+    if not value:
+        return None
+
+    params = value.split(':')
+    config = _from_params_to_config(params)
+
+    return config
+
+
 def _discover_sut(folder: str) -> list:
     """
     Discover new SUT implementations inside a specific folder.
@@ -185,7 +199,8 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         args.run_cmd,
         args.ltp_dir,
         tmpdir,
-        skip_tests=skip_tests)
+        skip_tests=skip_tests,
+        env=args.env)
 
     ltp.events.stop_event_loop()
 
@@ -243,6 +258,11 @@ def run() -> None:
         type=int,
         default=3600,
         help="Timeout before stopping a single execution")
+    parser.add_argument(
+        "--env",
+        "-e",
+        type=_env_config,
+        help="List of key=value environment values separated by ':'")
     parser.add_argument(
         "--run-suite",
         "-r",

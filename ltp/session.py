@@ -147,27 +147,35 @@ class Session:
             self,
             ltpdir: str,
             tmpdir: TempDir,
-            sut_config: dict) -> SUT:
+            sut_config: dict,
+            env: dict) -> SUT:
         """
         Start a new SUT and return it initialized.
         """
         sut_name = sut_config.get("name", None)
         testcases = os.path.join(ltpdir, "testcases", "bin")
 
-        env = {}
-        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
+        sut_env = {}
+        sut_env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
-        env["LTPROOT"] = ltpdir
-        env["TMPDIR"] = tmpdir.root if tmpdir.root else "/tmp"
-        env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
+        sut_env["LTPROOT"] = ltpdir
+        sut_env["TMPDIR"] = tmpdir.root if tmpdir.root else "/tmp"
+        sut_env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
 
         if self._no_colors:
-            env["LTP_COLORIZE_OUTPUT"] = "0"
+            sut_env["LTP_COLORIZE_OUTPUT"] = "0"
         else:
-            env["LTP_COLORIZE_OUTPUT"] = "1"
+            sut_env["LTP_COLORIZE_OUTPUT"] = "1"
+
+        if env:
+            for key, value in env.items():
+                if key not in sut_env:
+                    self._logger.info(
+                        "Add %s=%s environment variable into SUT")
+                    sut_env[key] = value
 
         config = {}
-        config['env'] = env
+        config['env'] = sut_env
         config['cwd'] = testcases
         config['tmpdir'] = tmpdir.abspath
         config.update(sut_config)
@@ -257,7 +265,8 @@ class Session:
             command: str,
             ltpdir: str,
             tmpdir: TempDir,
-            skip_tests: str = None) -> int:
+            skip_tests: str = None,
+            env: dict = None) -> int:
         """
         Run some testing suites with a specific SUT configurations.
         :param sut_config: system under test configuration.
@@ -274,6 +283,8 @@ class Session:
         :type tmpdir: TempDir
         :param skip_tests: tests to ignore in a regex form
         :type skip_tests: str
+        :param env: environment variables to inject inside SUT
+        :type env: dict
         :returns: exit code for the session
         """
         if not sut_config:
@@ -296,7 +307,8 @@ class Session:
                 self._sut = self._start_sut(
                     ltpdir,
                     tmpdir,
-                    sut_config)
+                    sut_config,
+                    env)
 
                 self._logger.info("Created SUT: %s", self._sut.name)
 
