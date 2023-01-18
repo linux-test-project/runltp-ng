@@ -1,9 +1,9 @@
 """
 Unittests for session module.
 """
-import json
 import os
 import stat
+import json
 import queue
 import pytest
 import ltp
@@ -353,3 +353,43 @@ class TestSession:
         assert tracer.next_event() == "suite_timeout"
         assert tracer.next_event() == "sut_stop"
         assert tracer.next_event() == "session_completed"
+
+    def test_env(self, suts, tmpdir, sut_config, ltpdir):
+        """
+        Run a session without suites but only one command run.
+        """
+        report_path = tmpdir / "report.json"
+
+        ltpdir = tmpdir.mkdir("ltp")
+        script_sh = ltpdir.mkdir("testcases").mkdir("bin") / "script.sh"
+        script_sh.write("#!/bin/sh\necho -n $VAR0:$VAR1")
+
+        st = os.stat(str(script_sh))
+        os.chmod(str(script_sh), st.st_mode | stat.S_IEXEC)
+
+        suite = ltpdir.mkdir("runtest") / "suite"
+        suite.write("test script.sh")
+
+        tmpdir_obj = TempDir(root=tmpdir)
+        try:
+            session = Session(suts)
+            retcode = session.run_single(
+                sut_config,
+                report_path,
+                ["suite"],
+                None,
+                ltpdir,
+                tmpdir_obj,
+                env=dict(VAR0="0", VAR1="1"))
+
+            assert retcode == Session.RC_OK
+            assert os.path.isfile(report_path)
+
+            report_d = None
+            with open(report_path, 'r') as report_f:
+                report_d = json.loads(report_f.read())
+
+            assert len(report_d["results"]) > 0
+            assert report_d["results"][0]["test"]["log"] == "0:1"
+        finally:
+            session.stop()
