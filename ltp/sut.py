@@ -15,13 +15,13 @@ class SUTError(LTPException):
     """
 
 
-class SUTTimeoutError(LTPException):
+class SUTTimeoutError(SUTError):
     """
     Raised when timeout error occurs in SUT.
     """
 
 
-class KernelPanicError(LTPException):
+class KernelPanicError(SUTError):
     """
     Raised during kernel panic.
     """
