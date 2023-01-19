@@ -95,11 +95,11 @@ class TestSession:
         ltp.events.reset()
 
     @pytest.fixture
-    def suts(self):
+    def sut(self):
         """
         Current implemented SUT in the default runltp-ng implementation.
         """
-        return [HostSUT()]
+        return HostSUT()
 
     @pytest.fixture
     def ltpdir(self, tmpdir):
@@ -170,7 +170,7 @@ class TestSession:
         scenario_def.write("dirsuite2\ndirsuite3\ndirsuite4\ndirsuite5")
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_run_cmd(self, suts, tmpdir, sut_config, ltpdir):
+    def test_run_cmd(self, sut, tmpdir, sut_config, ltpdir):
         """
         Run a session without suites but only one command run.
         """
@@ -180,14 +180,13 @@ class TestSession:
             "ls -l")
 
         try:
-            session = Session(suts)
-            retcode = session.run_single(
-                sut_config,
-                None,
-                None,
-                "ls -l",
-                ltpdir,
-                TempDir(root=tmpdir))
+            session = Session(
+                sut=sut,
+                sut_config=sut_config,
+                ltpdir=ltpdir,
+                tmpdir=str(tmpdir))
+
+            retcode = session.run_single(command="ls -l")
 
             assert retcode == Session.RC_OK
             assert tracer.next_event() == "session_started"
@@ -203,7 +202,7 @@ class TestSession:
     @pytest.mark.parametrize("command", [None, "ls -1"])
     def test_run_single(
             self,
-            suts,
+            sut,
             tmpdir,
             use_report,
             suites,
@@ -223,14 +222,16 @@ class TestSession:
             command)
 
         try:
-            session = Session(suts)
+            session = Session(
+                sut=sut,
+                sut_config=sut_config,
+                ltpdir=ltpdir,
+                tmpdir=str(tmpdir))
+
             retcode = session.run_single(
-                sut_config,
-                report_path,
-                suites,
-                command,
-                ltpdir,
-                TempDir(root=tmpdir))
+                report_path=report_path,
+                suites=suites,
+                command=command)
 
             assert retcode == Session.RC_OK
             assert tracer.next_event() == "session_started"
@@ -256,7 +257,7 @@ class TestSession:
     @pytest.mark.usefixtures("prepare_tmpdir")
     def test_skip_tests(
             self,
-            suts,
+            sut,
             tmpdir,
             sut_config,
             ltpdir):
@@ -266,15 +267,22 @@ class TestSession:
         report_path = str(tmpdir / "report.json")
 
         try:
-            session = Session(suts)
-            retcode = session.run_single(
-                sut_config,
-                report_path,
-                ["dirsuite0", "dirsuite1", "dirsuite2", "dirsuite3", "dirsuite4"],
-                None,
-                ltpdir,
-                TempDir(root=tmpdir),
+            session = Session(
+                sut=sut,
+                sut_config=sut_config,
+                ltpdir=ltpdir,
+                tmpdir=str(tmpdir),
                 skip_tests="dir0[12]|dir0(1|3)|dir05")
+
+            retcode = session.run_single(
+                report_path=report_path,
+                suites=[
+                    "dirsuite0",
+                    "dirsuite1",
+                    "dirsuite2",
+                    "dirsuite3",
+                    "dirsuite4"
+                ])
 
             report_d = None
             with open(report_path, 'r') as report_f:
@@ -291,13 +299,17 @@ class TestSession:
             session.stop()
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_stop(self, suts, tmpdir, sut_config, ltpdir, suites):
+    def test_stop(self, sut, tmpdir, sut_config, ltpdir, suites):
         """
         Run a session using a specific sut configuration.
         """
         report_path = str(tmpdir / "report.json")
 
-        session = Session(suts)
+        session = Session(
+            sut=sut,
+            sut_config=sut_config,
+            ltpdir=ltpdir,
+            tmpdir=str(tmpdir))
 
         def stop_exec_suites(test):
             session.stop(timeout=3)
@@ -309,13 +321,7 @@ class TestSession:
             sut_config["name"],
             None)
 
-        retcode = session.run_single(
-            sut_config,
-            report_path,
-            suites,
-            None,
-            ltpdir,
-            TempDir(tmpdir))
+        retcode = session.run_single(report_path=report_path, suites=suites)
 
         assert retcode == Session.RC_OK
         assert os.path.exists(report_path)
@@ -325,13 +331,18 @@ class TestSession:
         assert tracer.next_event() == "session_stopped"
 
     @pytest.mark.usefixtures("prepare_tmpdir")
-    def test_suite_timeout_report(self, suts, tmpdir, sut_config, ltpdir):
+    def test_suite_timeout_report(self, sut, tmpdir, sut_config, ltpdir):
         """
         Test suite timeout and verify that JSON report is created in any way.
         """
         report_path = str(tmpdir / "report.json")
 
-        session = Session(suts, suite_timeout=0)
+        session = Session(
+            sut=sut,
+            sut_config=sut_config,
+            ltpdir=ltpdir,
+            tmpdir=str(tmpdir),
+            suite_timeout=0)
 
         tracer = EventsTracer(
             str(tmpdir),
@@ -339,12 +350,8 @@ class TestSession:
             None)
 
         retcode = session.run_single(
-            sut_config,
-            report_path,
-            ["sleep"],
-            None,
-            ltpdir,
-            TempDir(tmpdir))
+            suites=["sleep"],
+            report_path=report_path)
 
         assert retcode == Session.RC_TIMEOUT
         assert os.path.exists(report_path)
@@ -354,7 +361,7 @@ class TestSession:
         assert tracer.next_event() == "sut_stop"
         assert tracer.next_event() == "session_completed"
 
-    def test_env(self, suts, tmpdir, sut_config, ltpdir):
+    def test_env(self, sut, tmpdir, sut_config, ltpdir):
         """
         Run a session without suites but only one command run.
         """
@@ -370,17 +377,17 @@ class TestSession:
         suite = ltpdir.mkdir("runtest") / "suite"
         suite.write("test script.sh")
 
-        tmpdir_obj = TempDir(root=tmpdir)
         try:
-            session = Session(suts)
-            retcode = session.run_single(
-                sut_config,
-                report_path,
-                ["suite"],
-                None,
-                ltpdir,
-                tmpdir_obj,
+            session = Session(
+                sut=sut,
+                sut_config=sut_config,
+                ltpdir=ltpdir,
+                tmpdir=str(tmpdir),
                 env=dict(VAR0="0", VAR1="1"))
+
+            retcode = session.run_single(
+                report_path=report_path,
+                suites=["suite"])
 
             assert retcode == Session.RC_OK
             assert os.path.isfile(report_path)

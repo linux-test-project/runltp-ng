@@ -13,7 +13,6 @@ import ltp
 from ltp import LTPException
 from ltp.sut import SUT
 from ltp.sut import IOBuffer
-from ltp.results import SuiteResults
 from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
 from ltp.dispatcher import SuiteTimeoutError
@@ -56,43 +55,57 @@ class Session:
     RC_TIMEOUT = 124
     RC_INTERRUPT = 130
 
-    def __init__(
-            self,
-            suts: list,
-            suite_timeout: float = 3600,
-            exec_timeout: float = 3600,
-            no_colors: bool = False) -> None:
+    def __init__(self, **kwargs) -> None:
         """
-        :param suts: list of SUT
-        :type suts: list(SUT)
-        :param suite_timeout: timeout before stopping testing suite
-        :type suite_timeout: float
-        :param exec_timeout: timeout before stopping single execution
-        :type exec_timeout: float
-        :param no_colors: disable LTP colors
+        :param tmpdir: temporary directory path
+        :type tmpdir: str
+        :param ltpdir: LTP directory path
+        :type ltpdir: str
+        :param sut: SUT communication object
+        :type sut: SUT
+        :param sut_config: SUT object configuration
+        :type sut_config: dict
+        :param no_colors: if True, it disables LTP tests colors
         :type no_colors: bool
+        :param exec_timeout: test timeout
+        :type exec_timeout: float
+        :param suite_timeout: testing suite timeout
+        :type suite_timeout: float
+        :param skip_tests: regexp excluding tests from execution
+        :type skip_tests: str
+        :param env: SUT environment vairables to inject before execution
+        :type env: dict
         """
         self._logger = logging.getLogger("ltp.session")
-        self._suts = suts
-        self._suite_timeout = max(suite_timeout, 0)
-        self._exec_timeout = max(exec_timeout, 0)
-        self._sut = None
-        self._dispatcher = None
+        self._tmpdir = TempDir(kwargs.get("tmpdir", "/tmp"))
+        self._ltpdir = kwargs.get("ltpdir", "/opt/ltp")
+        self._sut = kwargs.get("sut", None)
+        self._no_colors = kwargs.get("no_colors", False)
+        self._env = kwargs.get("env", None)
+        self._exec_timeout = max(kwargs.get("exec_timeout", 3600.0), 0.0)
+        self._suite_timeout = max(kwargs.get("suite_timeout", 3600.0), 0.0)
+        self._skip_tests = kwargs.get("skip_tests", "")
+
+        self._sut_config = self._get_sut_config(kwargs.get("sut_config", {}))
+        self._setup_debug_log()
+
         self._lock_run = threading.Lock()
-        self._no_colors = no_colors
+        self._dispatcher = SerialDispatcher(
+            ltpdir=self._ltpdir,
+            tmpdir=self._tmpdir,
+            sut=self._sut,
+            suite_timeout=self._suite_timeout,
+            test_timeout=self._exec_timeout)
 
-    @staticmethod
-    def _setup_debug_log(tmpdir: TempDir) -> None:
+    def _setup_debug_log(self) -> None:
         """
-        Save a log file with debugging information
+        Set logging module so we save a log file with debugging information
+        inside the temporary path.
         """
-        if not tmpdir.abspath:
-            return
-
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
 
-        debug_file = os.path.join(tmpdir.abspath, "debug.log")
+        debug_file = os.path.join(self._tmpdir.abspath, "debug.log")
         handler = logging.FileHandler(debug_file, encoding="utf8")
         handler.setLevel(logging.DEBUG)
 
@@ -101,65 +114,52 @@ class Session:
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    def _print_results(self, suite_results: SuiteResults) -> None:
+    def _get_sut_config(self, sut_config: dict) -> dict:
         """
-        Print suite results.
+        Create the SUT configuration. The dictionary is usually passed to the
+        `setup` method of the SUT, in order to setup the environment before
+        running tests.
         """
-        tests = len(suite_results.tests_results)
+        testcases = os.path.join(self._ltpdir, "testcases", "bin")
 
-        self._logger.info("")
-        self._logger.info("Suite name: %s", suite_results.suite.name)
-        self._logger.info("Total Run: %d", tests)
-        self._logger.info("Elapsed time: %.1f s", suite_results.exec_time)
-        self._logger.info("Total Passed Tests: %d", suite_results.passed)
-        self._logger.info("Total Failed Tests: %d", suite_results.failed)
-        self._logger.info("Total Skipped Tests: %d", suite_results.skipped)
-        self._logger.info("Total Broken Tests: %d", suite_results.broken)
-        self._logger.info("Total Warnings: %d", suite_results.warnings)
-        self._logger.info("Kernel Version: %s", suite_results.kernel)
-        self._logger.info("Machine Architecture: %s", suite_results.arch)
-        self._logger.info("Distro: %s", suite_results.distro)
-        self._logger.info("Distro version: %s", suite_results.distro_ver)
-        self._logger.info("")
+        env = {}
+        env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
+            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
+        env["LTPROOT"] = self._ltpdir
+        env["TMPDIR"] = self._tmpdir.root if self._tmpdir.root else "/tmp"
+        env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
 
-    def _get_sut(self, name: str, config: dict) -> SUT:
-        """
-        Return the SUT according with its name.
-        :param name: name of the SUT
-        :type name: str
-        :returns: SUT
-        """
-        mysut = None
+        if self._no_colors:
+            env["LTP_COLORIZE_OUTPUT"] = "0"
+        else:
+            env["LTP_COLORIZE_OUTPUT"] = "1"
 
-        for sut in self._suts:
-            if sut.name == name:
-                mysut = sut
-                break
+        if self._env:
+            for key, value in self._env.items():
+                if key in env:
+                    continue
 
-        if not mysut:
-            raise SessionError(f"'{name}' SUT is not available")
+                self._logger.info("Set environment variable %s=%s", key, value)
+                env[key] = value
 
-        mysut.setup(**config)
+        config = sut_config.copy()
+        config['env'] = env
+        config['cwd'] = testcases
+        config['tmpdir'] = self._tmpdir.abspath
 
-        return mysut
+        return config
 
-    def _start_sut(
-            self,
-            ltpdir: str,
-            tmpdir: TempDir,
-            sut_config: dict,
-            env: dict) -> SUT:
+    def _start_sut(self) -> None:
         """
         Start a new SUT and return it initialized.
         """
-        sut_name = sut_config.get("name", None)
-        testcases = os.path.join(ltpdir, "testcases", "bin")
+        testcases = os.path.join(self._ltpdir, "testcases", "bin")
 
         sut_env = {}
         sut_env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
             f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
-        sut_env["LTPROOT"] = ltpdir
-        sut_env["TMPDIR"] = tmpdir.root if tmpdir.root else "/tmp"
+        sut_env["LTPROOT"] = self._ltpdir
+        sut_env["TMPDIR"] = self._tmpdir.root if self._tmpdir.root else "/tmp"
         sut_env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
 
         if self._no_colors:
@@ -167,8 +167,8 @@ class Session:
         else:
             sut_env["LTP_COLORIZE_OUTPUT"] = "1"
 
-        if env:
-            for key, value in env.items():
+        if self._env:
+            for key, value in self._env.items():
                 if key not in sut_env:
                     self._logger.info(
                         "Add %s=%s environment variable into SUT")
@@ -177,33 +177,22 @@ class Session:
         config = {}
         config['env'] = sut_env
         config['cwd'] = testcases
-        config['tmpdir'] = tmpdir.abspath
-        config.update(sut_config)
+        config['tmpdir'] = self._tmpdir.abspath
+        config.update(self._sut_config)
 
-        sut = None
-        for mysut in self._suts:
-            if mysut.name == sut_name:
-                sut = mysut
-                break
+        self._sut.setup(**config)
 
-        if not sut:
-            raise SessionError(f"'{sut_name}' SUT is not available")
+        ltp.events.fire("sut_start", self._sut.name)
 
-        sut.setup(**config)
-
-        ltp.events.fire("sut_start", sut.name)
-
-        sut.ensure_communicate(
+        self._sut.ensure_communicate(
             timeout=3600,
-            iobuffer=Printer(sut, False))
-
-        return sut
+            iobuffer=Printer(self._sut, False))
 
     def _stop_sut(self, timeout: float = 30) -> None:
         """
         Stop a specific SUT.
         """
-        if not self._sut:
+        if not self._sut.is_running:
             return
 
         ltp.events.fire("sut_stop", self._sut.name)
@@ -217,27 +206,19 @@ class Session:
                 timeout=timeout,
                 iobuffer=Printer(self._sut, False))
 
-        self._sut = None
-
     def _stop_all(self, timeout: float = 30) -> None:
         """
         Stop both sut and dispatcher.
         """
-        if not self._sut:
-            return
-
         if self._dispatcher:
             self._dispatcher.stop(timeout=timeout)
 
         self._stop_sut(timeout=timeout)
 
-    def stop(self, timeout: float = 30):
+    def stop(self, timeout: float = 30) -> None:
         """
         Stop the current running session.
         """
-        if not self._sut:
-            return
-
         self._logger.info("Stopping session")
 
         with Timeout(timeout) as timer:
@@ -254,61 +235,28 @@ class Session:
 
         self._logger.info("Session stopped")
 
-    # pylint: disable=too-many-locals
-    # pylint: disable=too-many-statements
-    # pylint: disable=too-many-arguments
     def run_single(
             self,
-            sut_config: dict,
-            report_path: str,
-            suites: list,
-            command: str,
-            ltpdir: str,
-            tmpdir: TempDir,
-            skip_tests: str = None,
-            env: dict = None) -> int:
+            command: str = None,
+            suites: list = None,
+            report_path: str = None) -> int:
         """
         Run some testing suites with a specific SUT configurations.
-        :param sut_config: system under test configuration.
-        :type sut_config: dict
-        :param report_path: path of the report file. If None, it won't be saved
-        :type report_path: None | str
-        :param suites: suites to execute
-        :type suites: list
         :param command: command to execute
         :type command: str
-        :param ltpdir: ltp install folder
-        :type ltpdir: str
-        :param tmpdir: temporary directory
-        :type tmpdir: TempDir
-        :param skip_tests: tests to ignore in a regex form
-        :type skip_tests: str
-        :param env: environment variables to inject inside SUT
-        :type env: dict
+        :param suites: suites to execute
+        :type suites: list
+        :param report_path: path of the report file. If None, it won't be saved
+        :type report_path: None | str
         :returns: exit code for the session
         """
-        if not sut_config:
-            raise ValueError("sut configuration can't be empty")
-
         exit_code = self.RC_OK
 
         with self._lock_run:
-            self._sut = None
-            self._dispatcher = None
-
-            self._logger.info(
-                "Running session using temporary folder: %s",
-                tmpdir.abspath)
-
-            self._setup_debug_log(tmpdir)
-            ltp.events.fire("session_started", tmpdir.abspath)
+            ltp.events.fire("session_started", self._tmpdir.abspath)
 
             try:
-                self._sut = self._start_sut(
-                    ltpdir,
-                    tmpdir,
-                    sut_config,
-                    env)
+                self._start_sut()
 
                 self._logger.info("Created SUT: %s", self._sut.name)
 
@@ -327,17 +275,8 @@ class Session:
                         ret["returncode"])
 
                 if suites:
-                    self._dispatcher = SerialDispatcher(
-                        ltpdir=ltpdir,
-                        tmpdir=tmpdir,
-                        sut=self._sut,
-                        suite_timeout=self._suite_timeout,
-                        test_timeout=self._exec_timeout)
-
-                    self._logger.info("Created dispatcher")
-
                     self._dispatcher.exec_suites(
-                        suites, skip_tests=skip_tests)
+                        suites, skip_tests=self._skip_tests)
 
                     self._dispatcher.stop()
             except SuiteTimeoutError:
@@ -356,31 +295,25 @@ class Session:
 
                 exit_code = self.RC_INTERRUPT
             finally:
-                if not self._dispatcher:
+                results = self._dispatcher.last_results
+                if results:
+                    exporter = JSONExporter()
+
+                    if self._tmpdir.abspath:
+                        # store JSON report in the temporary folder
+                        results_report = os.path.join(
+                            self._tmpdir.abspath,
+                            "results.json")
+
+                        exporter.save_file(results, results_report)
+
+                    if report_path:
+                        exporter.save_file(results, report_path)
+
+                if not suites or (results and len(suites) == len(results)):
+                    # session has not been stopped
                     self._stop_sut(timeout=60)
-                else:
-                    results = self._dispatcher.last_results
-                    if results:
-                        for result in results:
-                            self._print_results(result)
-
-                        exporter = JSONExporter()
-
-                        if tmpdir.abspath:
-                            # store JSON report in the temporary folder
-                            results_report = os.path.join(
-                                tmpdir.abspath,
-                                "results.json")
-
-                            exporter.save_file(results, results_report)
-
-                        if report_path:
-                            exporter.save_file(results, report_path)
-
-                    if not suites or (results and len(suites) == len(results)):
-                        # session has not been stopped
-                        self._stop_sut(timeout=60)
-                        ltp.events.fire("session_completed", results)
-                        self._logger.info("Session completed")
+                    ltp.events.fire("session_completed", results)
+                    self._logger.info("Session completed")
 
         return exit_code

@@ -16,7 +16,6 @@ from argparse import ArgumentParser
 from argparse import Namespace
 import ltp
 from ltp.sut import SUT
-from ltp.tempfile import TempDir
 from ltp.session import Session
 from ltp.ui import SimpleUserInterface
 from ltp.ui import VerboseUserInterface
@@ -136,33 +135,27 @@ def _discover_sut(folder: str) -> list:
         LOADED_SUT.sort(key=lambda x: x.name)
 
 
-def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
+def _get_sut(sut_name: str) -> SUT:
     """
-    Handle runltp-ng command options.
+    Return the SUT with name `sut_name`.
     """
-    if args.sut and "help" in args.sut:
-        print(args.sut["help"])
-        return
+    sut = None
+    for mysut in LOADED_SUT:
+        if mysut.name == sut_name:
+            sut = mysut
+            break
 
-    if args.json_report and os.path.exists(args.json_report):
-        parser.error(f"JSON report file already exists: {args.json_report}")
+    return sut
 
-    if not args.run_suite and not args.run_cmd:
-        parser.error("--run-suite/--run-cmd are required")
 
-    if args.skip_file and not os.path.isfile(args.skip_file):
-        parser.error(f"'{args.skip_file}' skip file doesn't exist")
-
-    if args.tmp_dir and not os.path.isdir(args.tmp_dir):
-        parser.error(f"'{args.tmp_dir}' temporary folder doesn't exist")
-
-    # create regex of tests to skip
-    skip_tests = args.skip_tests
-
-    if args.skip_file:
+def _get_skip_tests(skip_tests: str, skip_file: str) -> str:
+    """
+    Return the skipped tests regexp.
+    """
+    if skip_file:
         lines = None
-        with open(args.skip_file, 'r', encoding="utf-8") as skip_file:
-            lines = skip_file.readlines()
+        with open(skip_file, 'r', encoding="utf-8") as skip_file_data:
+            lines = skip_file_data.readlines()
 
         toskip = [
             line.rstrip()
@@ -171,36 +164,49 @@ def _ltp_run(parser: ArgumentParser, args: Namespace) -> None:
         ]
         skip_tests = '|'.join(toskip) + '|' + skip_tests
 
+    return skip_tests
+
+
+def _start_session(parser: ArgumentParser, args: Namespace) -> None:
+    """
+    Handle runltp-ng command options.
+    """
+    # create regex of tests to skip
+    skip_tests = _get_skip_tests(args.skip_tests, args.skip_file)
     if skip_tests:
         try:
             re.compile(skip_tests)
         except re.error:
             parser.error(f"'{skip_tests}' is not a valid regular expression")
 
+    # get the current SUT communication object
+    sut_name = args.sut["name"]
+    sut = _get_sut(sut_name)
+    if not sut:
+        parser.error(f"'{sut_name}' is not an available SUT")
+
     ltp.events.start_event_loop()
+
+    session = Session(
+        sut=sut,
+        sut_config=args.sut,
+        tmpdir=args.tmp_dir,
+        ltpdir=args.ltp_dir,
+        suite_timeout=args.suite_timeout,
+        exec_timeout=args.exec_timeout,
+        no_colors=args.no_colors,
+        skip_tests=skip_tests,
+        env=args.env)
 
     if args.verbose:
         VerboseUserInterface(args.no_colors)
     else:
         SimpleUserInterface(args.no_colors)
 
-    session = Session(
-        LOADED_SUT,
-        suite_timeout=args.suite_timeout,
-        exec_timeout=args.exec_timeout,
-        no_colors=args.no_colors)
-
-    tmpdir = TempDir(args.tmp_dir)
-
     exit_code = session.run_single(
-        args.sut,
-        args.json_report,
-        args.run_suite,
-        args.run_cmd,
-        args.ltp_dir,
-        tmpdir,
-        skip_tests=skip_tests,
-        env=args.env)
+        command=args.run_cmd,
+        suites=args.run_suite,
+        report_path=args.json_report)
 
     ltp.events.stop_event_loop()
 
@@ -286,7 +292,23 @@ def run() -> None:
 
     args = parser.parse_args()
 
-    _ltp_run(parser, args)
+    if args.sut and "help" in args.sut:
+        print(args.sut["help"])
+        return
+
+    if args.json_report and os.path.exists(args.json_report):
+        parser.error(f"JSON report file already exists: {args.json_report}")
+
+    if not args.run_suite and not args.run_cmd:
+        parser.error("--run-suite/--run-cmd are required")
+
+    if args.skip_file and not os.path.isfile(args.skip_file):
+        parser.error(f"'{args.skip_file}' skip file doesn't exist")
+
+    if args.tmp_dir and not os.path.isdir(args.tmp_dir):
+        parser.error(f"'{args.tmp_dir}' temporary folder doesn't exist")
+
+    _start_session(parser, args)
 
 
 if __name__ == "__main__":
