@@ -385,7 +385,7 @@ class QemuSUT(SUT):
 
                     self._write_stdin("poweroff\n")
 
-                    while self._proc.poll() is None:
+                    while self.is_running:
                         events = self._poller.poll(1)
                         for fdesc, _ in events:
                             if fdesc != self._proc.stdout.fileno():
@@ -400,7 +400,7 @@ class QemuSUT(SUT):
                             pass
 
                 # still running -> stop process
-                if self._proc.poll() is None:
+                if self.is_running:
                     self._logger.info("Killing virtual machine process")
 
                     self._proc.send_signal(signal.SIGHUP)
@@ -411,7 +411,7 @@ class QemuSUT(SUT):
                     timer.check(err_msg="Timed out during stop")
 
                 # wait for process to end
-                while self._proc.poll() is None:
+                while self.is_running:
                     time.sleep(1e-6)
                     timer.check(err_msg="Timed out during stop")
 
@@ -431,7 +431,7 @@ class QemuSUT(SUT):
         with Timeout(timeout) as timer:
             try:
                 # still running -> stop process
-                if self._proc.poll() is None:
+                if self.is_running:
                     self._logger.info("Killing virtual machine process")
 
                     self._proc.send_signal(signal.SIGKILL)
@@ -447,7 +447,7 @@ class QemuSUT(SUT):
                         timer.check(err_msg="Timed out during stop")
 
                     # wait for process to end
-                    while self._proc.poll() is None:
+                    while self.is_running:
                         time.sleep(1e-6)
                         timer.check(err_msg="Timed out during stop")
             finally:
@@ -462,6 +462,8 @@ class QemuSUT(SUT):
 
         if self.is_running:
             raise SUTError("Virtual machine is already running")
+
+        error = None
 
         with self._comm_lock:
             self._logged_in = False
@@ -531,13 +533,15 @@ class QemuSUT(SUT):
 
                 self._logger.info("Virtual machine started")
             except SUTError as err:
-                if not self._stop:
-                    if self._proc and self._proc.poll() is not None:
-                        # this can happen when shell is available but
-                        # something happened during commands execution
-                        self._proc.kill()
+                error = err
 
-                    raise SUTError(err)
+        if not self._stop and error:
+            if self.is_running:
+                # this can happen when shell is available but
+                # something happened during commands execution
+                self.stop(iobuffer=iobuffer)
+
+            raise SUTError(error)
 
     def run_command(
             self,
