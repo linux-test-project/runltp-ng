@@ -153,34 +153,7 @@ class Session:
         """
         Start a new SUT and return it initialized.
         """
-        testcases = os.path.join(self._ltpdir, "testcases", "bin")
-
-        sut_env = {}
-        sut_env["PATH"] = "/sbin:/usr/sbin:/usr/local/sbin:" + \
-            f"/root/bin:/usr/local/bin:/usr/bin:/bin:{testcases}"
-        sut_env["LTPROOT"] = self._ltpdir
-        sut_env["TMPDIR"] = self._tmpdir.root if self._tmpdir.root else "/tmp"
-        sut_env["LTP_TIMEOUT_MUL"] = str((self._exec_timeout * 0.9) / 300.0)
-
-        if self._no_colors:
-            sut_env["LTP_COLORIZE_OUTPUT"] = "0"
-        else:
-            sut_env["LTP_COLORIZE_OUTPUT"] = "1"
-
-        if self._env:
-            for key, value in self._env.items():
-                if key not in sut_env:
-                    self._logger.info(
-                        "Add %s=%s environment variable into SUT")
-                    sut_env[key] = value
-
-        config = {}
-        config['env'] = sut_env
-        config['cwd'] = testcases
-        config['tmpdir'] = self._tmpdir.abspath
-        config.update(self._sut_config)
-
-        self._sut.setup(**config)
+        self._sut.setup(**self._sut_config)
 
         ltp.events.fire("sut_start", self._sut.name)
 
