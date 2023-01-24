@@ -456,6 +456,9 @@ class SerialDispatcher(Dispatcher):
             if self._stop:
                 break
 
+            if time.time() - start_t >= self._suite_timeout:
+                timed_out = True
+
             if timed_out or interrupt:
                 # after suite timeout treat all tests left as skipped tests
                 result = TestResults(
