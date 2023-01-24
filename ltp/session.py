@@ -15,7 +15,6 @@ from ltp.sut import SUT
 from ltp.sut import IOBuffer
 from ltp.tempfile import TempDir
 from ltp.dispatcher import SerialDispatcher
-from ltp.dispatcher import SuiteTimeoutError
 from ltp.export import JSONExporter
 from ltp.utils import Timeout
 
@@ -49,11 +48,6 @@ class Session:
     """
     The main session handler.
     """
-
-    RC_OK = 0
-    RC_ERROR = 1
-    RC_TIMEOUT = 124
-    RC_INTERRUPT = 130
 
     def __init__(self, **kwargs) -> None:
         """
@@ -212,7 +206,7 @@ class Session:
             self,
             command: str = None,
             suites: list = None,
-            report_path: str = None) -> int:
+            report_path: str = None) -> None:
         """
         Run some testing suites with a specific SUT configurations.
         :param command: command to execute
@@ -221,10 +215,7 @@ class Session:
         :type suites: list
         :param report_path: path of the report file. If None, it won't be saved
         :type report_path: None | str
-        :returns: exit code for the session
         """
-        exit_code = self.RC_OK
-
         with self._lock_run:
             ltp.events.fire("session_started", self._tmpdir.abspath)
 
@@ -252,21 +243,12 @@ class Session:
                         suites, skip_tests=self._skip_tests)
 
                     self._dispatcher.stop()
-            except SuiteTimeoutError:
-                exit_code = self.RC_TIMEOUT
             except LTPException as err:
-                self._stop_all(timeout=60)
-
                 self._logger.exception(err)
-                ltp.events.fire("session_error", str(err))
-
-                exit_code = self.RC_ERROR
-            except KeyboardInterrupt:
+                raise err
+            except KeyboardInterrupt as err:
                 self._logger.info("Keyboard interrupt")
-                self._stop_all(timeout=60)
-                ltp.events.fire("session_stopped")
-
-                exit_code = self.RC_INTERRUPT
+                raise err
             finally:
                 results = self._dispatcher.last_results
                 if results:
@@ -288,5 +270,3 @@ class Session:
                     self._stop_sut(timeout=60)
                     ltp.events.fire("session_completed", results)
                     self._logger.info("Session completed")
-
-        return exit_code

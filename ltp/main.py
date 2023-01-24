@@ -7,7 +7,6 @@
 """
 import os
 import re
-import sys
 import inspect
 import argparse
 import importlib
@@ -19,10 +18,16 @@ from ltp.sut import SUT
 from ltp.session import Session
 from ltp.ui import SimpleUserInterface
 from ltp.ui import VerboseUserInterface
+from ltp.dispatcher import SuiteTimeoutError
 
 
 # runtime loaded SUT(s)
 LOADED_SUT = []
+
+RC_OK = 0
+RC_ERROR = 1
+RC_TIMEOUT = 124
+RC_INTERRUPT = 130
 
 
 def _from_params_to_config(params: list) -> dict:
@@ -211,17 +216,30 @@ def _start_session(parser: ArgumentParser, args: Namespace) -> None:
     else:
         SimpleUserInterface(args.no_colors)
 
-    exit_code = session.run_single(
-        command=args.run_cmd,
-        suites=args.run_suite,
-        report_path=args.json_report)
+    exit_code = RC_OK
 
-    ltp.events.stop_event_loop()
+    try:
+        session.run_single(
+            command=args.run_cmd,
+            suites=args.run_suite,
+            report_path=args.json_report)
+    except KeyboardInterrupt:
+        session.stop(timeout=60)
+        exit_code = RC_INTERRUPT
+        ltp.events.fire("session_stopped")
+    except SuiteTimeoutError:
+        exit_code = RC_TIMEOUT
+    except ltp.LTPException as err:
+        session.stop(timeout=60)
+        exit_code = RC_ERROR
+        ltp.events.fire("session_error", str(err))
+    finally:
+        ltp.events.stop_event_loop()
 
-    sys.exit(exit_code)
+    parser.exit(exit_code)
 
 
-def run() -> None:
+def run(cmd_args: list = None) -> None:
     """
     Entry point of the application.
     """
@@ -298,11 +316,11 @@ def run() -> None:
         type=str,
         help="JSON output report")
 
-    args = parser.parse_args()
+    args = parser.parse_args(cmd_args)
 
     if args.sut and "help" in args.sut:
         print(args.sut["help"])
-        return
+        parser.exit(RC_OK)
 
     if args.json_report and os.path.exists(args.json_report):
         parser.error(f"JSON report file already exists: {args.json_report}")

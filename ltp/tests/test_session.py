@@ -8,7 +8,7 @@ import queue
 import pytest
 import ltp
 from ltp.session import Session
-from ltp.tempfile import TempDir
+from ltp.dispatcher import SuiteTimeoutError
 from ltp.host import HostSUT
 
 
@@ -186,9 +186,8 @@ class TestSession:
                 ltpdir=ltpdir,
                 tmpdir=str(tmpdir))
 
-            retcode = session.run_single(command="ls -l")
+            session.run_single(command="ls -l")
 
-            assert retcode == Session.RC_OK
             assert tracer.next_event() == "session_started"
             assert tracer.next_event() == "sut_start"
             assert tracer.next_event() == "run_cmd_start"
@@ -228,12 +227,11 @@ class TestSession:
                 ltpdir=ltpdir,
                 tmpdir=str(tmpdir))
 
-            retcode = session.run_single(
+            session.run_single(
                 report_path=report_path,
                 suites=suites,
                 command=command)
 
-            assert retcode == Session.RC_OK
             assert tracer.next_event() == "session_started"
             assert tracer.next_event() == "sut_start"
 
@@ -274,7 +272,7 @@ class TestSession:
                 tmpdir=str(tmpdir),
                 skip_tests="dir0[12]|dir0(1|3)|dir05")
 
-            retcode = session.run_single(
+            session.run_single(
                 report_path=report_path,
                 suites=[
                     "dirsuite0",
@@ -288,7 +286,6 @@ class TestSession:
             with open(report_path, 'r') as report_f:
                 report_d = json.loads(report_f.read())
 
-            assert retcode == Session.RC_OK
             tests = [item['test_fqn'] for item in report_d["results"]]
             assert "dir01" not in tests
             assert "dir02" not in tests
@@ -321,9 +318,8 @@ class TestSession:
             sut_config["name"],
             None)
 
-        retcode = session.run_single(report_path=report_path, suites=suites)
+        session.run_single(report_path=report_path, suites=suites)
 
-        assert retcode == Session.RC_OK
         assert os.path.exists(report_path)
         assert tracer.next_event() == "session_started"
         assert tracer.next_event() == "sut_start"
@@ -349,11 +345,11 @@ class TestSession:
             sut_config["name"],
             None)
 
-        retcode = session.run_single(
-            suites=["sleep"],
-            report_path=report_path)
+        with pytest.raises(SuiteTimeoutError):
+            session.run_single(
+                suites=["sleep"],
+                report_path=report_path)
 
-        assert retcode == Session.RC_TIMEOUT
         assert os.path.exists(report_path)
         assert tracer.next_event() == "session_started"
         assert tracer.next_event() == "sut_start"
@@ -385,11 +381,10 @@ class TestSession:
                 tmpdir=str(tmpdir),
                 env=dict(VAR0="0", VAR1="1"))
 
-            retcode = session.run_single(
+            session.run_single(
                 report_path=report_path,
                 suites=["suite"])
 
-            assert retcode == Session.RC_OK
             assert os.path.isfile(report_path)
 
             report_d = None
