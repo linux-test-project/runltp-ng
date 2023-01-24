@@ -152,6 +152,8 @@ def _get_skip_tests(skip_tests: str, skip_file: str) -> str:
     """
     Return the skipped tests regexp.
     """
+    skip = ""
+
     if skip_file:
         lines = None
         with open(skip_file, 'r', encoding="utf-8") as skip_file_data:
@@ -162,9 +164,15 @@ def _get_skip_tests(skip_tests: str, skip_file: str) -> str:
             for line in lines
             if not re.search(r'^\s+#.*', line)
         ]
-        skip_tests = '|'.join(toskip) + '|' + skip_tests
+        skip = '|'.join(toskip)
 
-    return skip_tests
+    if skip_tests:
+        if skip_file:
+            skip += "|"
+
+        skip += skip_tests
+
+    return skip
 
 
 def _start_session(parser: ArgumentParser, args: Namespace) -> None:
