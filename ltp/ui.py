@@ -5,6 +5,7 @@
 
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
+import os
 import platform
 import ltp
 from ltp.data import Test
@@ -32,6 +33,7 @@ class ConsoleUserInterface:
     def __init__(self, no_colors: bool = False) -> None:
         self._no_colors = no_colors
         self._line = ""
+        self._tmpdir = ""
 
         ltp.events.register("session_started", self.session_started)
         ltp.events.register("session_stopped", self.session_stopped)
@@ -115,6 +117,7 @@ class ConsoleUserInterface:
         message += f"\n\tTemporary directory: {tmpdir}\n"
 
         self._print(message)
+        self._tmpdir = tmpdir
 
     def session_stopped(self) -> None:
         self._print("Session stopped")
@@ -174,7 +177,12 @@ class ConsoleUserInterface:
             color=self.RED)
 
     def session_error(self, error: str) -> None:
+        debug_log = os.path.join(self._tmpdir, "debug.log")
+
         self._print(f"Error: {error}", color=self.RED)
+        self._print(
+            f"Debug information can be found here: {debug_log}",
+            color=self.RED)
 
     def internal_error(self, exc: BaseException, func_name: str) -> None:
         self._print(
