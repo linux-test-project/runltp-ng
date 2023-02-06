@@ -25,7 +25,7 @@ class SessionError(LTPException):
     """
 
 
-class Printer(IOBuffer):
+class RedirectStdout(IOBuffer):
     """
     Redirect data from stdout to events.
     """
@@ -38,7 +38,7 @@ class Printer(IOBuffer):
         if self._is_cmd:
             ltp.events.fire("run_cmd_stdout", data)
         else:
-            ltp.events.fire("sut_stdout_line", self._sut.name, data)
+            ltp.events.fire("sut_stdout", self._sut.name, data)
 
 
 class Session:
@@ -150,7 +150,7 @@ class Session:
 
         self._sut.ensure_communicate(
             timeout=3600,
-            iobuffer=Printer(self._sut, False))
+            iobuffer=RedirectStdout(self._sut, False))
 
     def _stop_sut(self, timeout: float = 30) -> None:
         """
@@ -164,11 +164,11 @@ class Session:
         if self._sut.is_running:
             self._sut.stop(
                 timeout=timeout,
-                iobuffer=Printer(self._sut, False))
+                iobuffer=RedirectStdout(self._sut, False))
         else:
             self._sut.force_stop(
                 timeout=timeout,
-                iobuffer=Printer(self._sut, False))
+                iobuffer=RedirectStdout(self._sut, False))
 
     def _stop_all(self, timeout: float = 30) -> None:
         """
@@ -227,7 +227,7 @@ class Session:
                     ret = self._sut.run_command(
                         command,
                         timeout=self._exec_timeout,
-                        iobuffer=Printer(self._sut, True))
+                        iobuffer=RedirectStdout(self._sut, True))
 
                     ltp.events.fire(
                         "run_cmd_stop",

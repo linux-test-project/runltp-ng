@@ -56,6 +56,7 @@ class QemuSUT(SUT):
         self._serial_type = None
         self._qemu_cmd = None
         self._opts = None
+        self._last_read = ""
 
     @staticmethod
     def _generate_string(length: int = 10) -> str:
@@ -263,28 +264,41 @@ class QemuSUT(SUT):
         if not self.is_running:
             return None
 
-        stdout = ""
+        stdout = self._last_read
         panic = False
+        found = False
 
         with Timeout(timeout) as timer:
-            while not stdout.endswith(message):
+            while not found:
                 events = self._poller.poll(0.1)
 
-                if not events and self._stop:
-                    break
+                # stop or panic when no events are available,
+                # so we collect all stdout before exit
+                if not events:
+                    if self._stop:
+                        break
 
-                if not events and panic:
-                    raise KernelPanicError()
+                    if panic:
+                        raise KernelPanicError()
 
                 for fdesc, _ in events:
                     if fdesc != self._proc.stdout.fileno():
                         continue
 
-                    data = self._read_stdout(1, iobuffer)
+                    data = self._read_stdout(1024, iobuffer)
                     if data:
                         stdout += data
 
-                    if stdout.endswith("Kernel panic"):
+                    # search for message inside stdout
+                    message_pos = stdout.find(message)
+                    if message_pos != -1:
+                        self._last_read = stdout[message_pos + len(message):]
+                        found = True
+                        break
+
+                    # turn on panic flag, so we rise it when all the
+                    # stdout has been collected
+                    if "Kernel panic" in stdout:
                         panic = True
 
                 timer.check(

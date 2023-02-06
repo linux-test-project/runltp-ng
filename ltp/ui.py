@@ -13,11 +13,10 @@ from ltp.data import Suite
 from ltp.results import TestResults
 from ltp.results import SuiteResults
 
+
 # pylint: disable=too-many-public-methods
 # pylint: disable=missing-function-docstring
 # pylint: disable=unused-argument
-
-
 class ConsoleUserInterface:
     """
     Console based user interface.
@@ -32,7 +31,6 @@ class ConsoleUserInterface:
 
     def __init__(self, no_colors: bool = False) -> None:
         self._no_colors = no_colors
-        self._line = ""
         self._tmpdir = ""
 
         ltp.events.register("session_started", self.session_started)
@@ -81,30 +79,6 @@ class ConsoleUserInterface:
 
         return uf_time
 
-    def _print_stdout(self, data: str) -> None:
-        """
-        Print stdout coming from command run or test.
-        """
-        if len(data) == 1:
-            self._line += data
-            if data == "\n":
-                self._print(self._line, end='')
-                self._line = ""
-        else:
-            lines = data.splitlines(True)
-            if len(lines) > 0:
-                for line in lines[:-1]:
-                    self._line += line
-
-                    self._print(self._line, end='')
-                    self._line = ""
-
-                self._line = lines[-1]
-
-            if data.endswith('\n') and self._line:
-                self._print(self._line, end='')
-                self._line = ""
-
     def session_started(self, tmpdir: str) -> None:
         uname = platform.uname()
         message = "Host information\n\n"
@@ -135,7 +109,7 @@ class ConsoleUserInterface:
         self._print(f"{cmd}", color=self.CYAN)
 
     def run_cmd_stdout(self, data: str) -> None:
-        self._print_stdout(data)
+        self._print(data, end='')
 
     def run_cmd_stop(self, command: str, stdout: str, returncode: int) -> None:
         self._print(f"\nExit code: {returncode}\n")
@@ -273,15 +247,15 @@ class VerboseUserInterface(ConsoleUserInterface):
 
         self._timed_out = False
 
-        ltp.events.register("sut_stdout_line", self.sut_stdout_line)
+        ltp.events.register("sut_stdout", self.sut_stdout)
         ltp.events.register("kernel_tainted", self.kernel_tainted)
         ltp.events.register("test_timed_out", self.test_timed_out)
         ltp.events.register("test_started", self.test_started)
         ltp.events.register("test_completed", self.test_completed)
-        ltp.events.register("test_stdout_line", self.test_stdout_line)
+        ltp.events.register("test_stdout", self.test_stdout)
 
-    def sut_stdout_line(self, _: str, data: str) -> None:
-        self._print_stdout(data)
+    def sut_stdout(self, _: str, data: str) -> None:
+        self._print(data, end='')
 
     def kernel_tainted(self, message: str) -> None:
         self._print(f"Tained kernel: {message}", color=self.YELLOW)
@@ -313,10 +287,10 @@ class VerboseUserInterface(ConsoleUserInterface):
         uf_time = self._user_friendly_duration(results.exec_time)
         self._print(f"\nDuration: {uf_time}\n")
 
-    def test_stdout_line(self, _: Test, line: str) -> None:
+    def test_stdout(self, _: Test, line: str) -> None:
         col = ""
 
         if "Kernel panic" in line:
             col = self.RED
 
-        self._print(line, color=col)
+        self._print(line, color=col, end='')

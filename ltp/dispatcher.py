@@ -164,42 +164,21 @@ class Dispatcher:
         raise NotImplementedError()
 
 
-class StdoutChecker(IOBuffer):
+class RedirectTestStdout(IOBuffer):
     """
     Check for test's stdout and raise an exception if Kernel panic occured.
     """
 
     def __init__(self, test: Test) -> None:
-        self.stdout = ""
         self._test = test
-        self._line = ""
+        self.stdout = ""
 
     def write(self, data: str) -> None:
-        if len(data) == 1:
-            self._line += data
-            if data == "\n":
-                ltp.events.fire(
-                    "test_stdout_line",
-                    self._test,
-                    self._line[:-1])
-                self._line = ""
-        else:
-            lines = data.split('\n')
-            for line in lines[:-1]:
-                self._line += line
-                ltp.events.fire("test_stdout_line", self._test, self._line)
-                self._line = ""
-
-            self._line = lines[-1]
-
-            if data.endswith('\n') and self._line:
-                ltp.events.fire("test_stdout_line", self._test, self._line)
-                self._line = ""
-
+        ltp.events.fire("test_stdout", self._test, data)
         self.stdout += data
 
 
-class RedirectStdout(IOBuffer):
+class RedirectSUTStdout(IOBuffer):
     """
     Redirect data from stdout to events.
     """
@@ -211,7 +190,7 @@ class RedirectStdout(IOBuffer):
         if not self._sut:
             return
 
-        ltp.events.fire("sut_stdout_line", self._sut.name, data)
+        ltp.events.fire("sut_stdout", self._sut.name, data)
 
 
 class SerialDispatcher(Dispatcher):
@@ -313,7 +292,7 @@ class SerialDispatcher(Dispatcher):
 
         self._sut.ensure_communicate(
             timeout=3600,
-            iobuffer=RedirectStdout(self._sut),
+            iobuffer=RedirectSUTStdout(self._sut),
             force=force)
 
         self._logger.info("SUT rebooted")
@@ -365,12 +344,12 @@ class SerialDispatcher(Dispatcher):
         timed_out = False
         reboot = False
 
-        checker = StdoutChecker(test)
+        buffer = RedirectTestStdout(test)
         try:
             test_data = self._sut.run_command(
                 cmd,
                 timeout=self._test_timeout,
-                iobuffer=checker)
+                iobuffer=buffer)
         except SUTTimeoutError:
             timed_out = True
             try:
@@ -405,7 +384,7 @@ class SerialDispatcher(Dispatcher):
             test_data = {
                 "name": test.name,
                 "command": test.command,
-                "stdout": checker.stdout,
+                "stdout": buffer.stdout,
                 "returncode": -1,
                 "exec_time": self._test_timeout,
             }
