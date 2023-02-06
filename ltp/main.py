@@ -80,7 +80,7 @@ def _sut_config(value: str) -> dict:
                 for opt, desc in sut.config_help.items():
                     msg += f"\t{opt}: {desc}\n"
 
-        return dict(help=msg)
+        return {"help": msg}
 
     if not value:
         raise argparse.ArgumentTypeError("SUT parameters can't be empty")

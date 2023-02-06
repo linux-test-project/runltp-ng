@@ -138,18 +138,18 @@ class SSHSUT(SUT):
 
     @property
     def config_help(self) -> dict:
-        return dict(
-            host="IP address of the SUT (default: localhost)",
-            port="TCP port of the service (default: 22)",
-            user="name of the user (default: root)",
-            password="root password",
-            timeout="connection timeout in seconds (default: 10)",
-            key_file="private key location",
-            hostkey_policy="host key policy - auto | missing | reject. (default: auto)",
-            known_hosts="known_hosts file (default: ~/.ssh/known_hosts)",
-            reset_command="command to reset the remote SUT",
-            sudo="use sudo to access to root shell (default: 0)",
-        )
+        return {
+            "host": "IP address of the SUT (default: localhost)",
+            "port": "TCP port of the service (default: 22)",
+            "user": "name of the user (default: root)",
+            "password": "root password",
+            "timeout": "connection timeout in seconds (default: 10)",
+            "key_file": "private key location",
+            "hostkey_policy": "host key policy - auto | missing | reject. (default: auto)",
+            "known_hosts": "known_hosts file (default: ~/.ssh/known_hosts)",
+            "reset_command": "command to reset the remote SUT",
+            "sudo": "use sudo to access to root shell (default: 0)",
+        }
 
     @property
     def name(self) -> str:

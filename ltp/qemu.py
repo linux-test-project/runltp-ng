@@ -188,18 +188,18 @@ class QemuSUT(SUT):
 
     @property
     def config_help(self) -> dict:
-        return dict(
-            image="qcow2 image location",
-            image_overlay="image_overlay: image copy location",
-            password="root password (default: root)",
-            system="system architecture (default: x86_64)",
-            ram="RAM of the VM (default: 2G)",
-            smp="number of CPUs (default: 2)",
-            serial="type of serial protocol. isa|virtio (default: isa)",
-            virtfs="directory to mount inside VM",
-            ro_image="path of the image that will exposed as read only",
-            options="user defined options",
-        )
+        return {
+            "image": "qcow2 image location",
+            "image_overlay": "image_overlay: image copy location",
+            "password": "root password (default: root)",
+            "system": "system architecture (default: x86_64)",
+            "ram": "RAM of the VM (default: 2G)",
+            "smp": "number of CPUs (default: 2)",
+            "serial": "type of serial protocol. isa|virtio (default: isa)",
+            "virtfs": "directory to mount inside VM",
+            "ro_image": "path of the image that will exposed as read only",
+            "options": "user defined options",
+        }
 
     @property
     def name(self) -> str:
