@@ -198,9 +198,6 @@ class StdoutChecker(IOBuffer):
 
         self.stdout += data
 
-    def flush(self) -> None:
-        pass
-
 
 class RedirectStdout(IOBuffer):
     """
@@ -215,9 +212,6 @@ class RedirectStdout(IOBuffer):
             return
 
         ltp.events.fire("sut_stdout_line", self._sut.name, data)
-
-    def flush(self) -> None:
-        pass
 
 
 class SerialDispatcher(Dispatcher):

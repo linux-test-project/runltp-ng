@@ -85,9 +85,6 @@ class _TestSSHSUT(_TestSUT):
                 # wait for data inside the buffer
                 time.sleep(0.1)
 
-            def flush(self) -> None:
-                return
-
         buffer = MyBuffer()
         sut.stop(timeout=1, iobuffer=buffer)
 

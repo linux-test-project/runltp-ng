@@ -118,9 +118,6 @@ class TestHostSUT(_TestSUT):
             def write(self, _: str) -> None:
                 self.executed.append(1)
 
-            def flush(self) -> None:
-                pass
-
         buffer = MyBuffer()
         results = []
         cpu_count = os.cpu_count()

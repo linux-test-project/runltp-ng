@@ -238,7 +238,6 @@ class SSHSUT(SUT):
                                 errors="ignore")
 
                             iobuffer.write(rdata)
-                            iobuffer.flush()
 
                     if proc.poll() is not None:
                         break
@@ -345,7 +344,6 @@ class SSHSUT(SUT):
                     stdout_str += line
                     if iobuffer:
                         iobuffer.write(line)
-                        iobuffer.flush()
 
                 t_end = time.time() - t_start
 

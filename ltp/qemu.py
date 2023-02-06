@@ -233,7 +233,6 @@ class QemuSUT(SUT):
         # write on stdout buffers
         if iobuffer:
             iobuffer.write(rdata)
-            iobuffer.flush()
 
         return rdata
 

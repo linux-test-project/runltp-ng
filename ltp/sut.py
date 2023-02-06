@@ -38,12 +38,6 @@ class IOBuffer:
         """
         raise NotImplementedError()
 
-    def flush(self) -> None:
-        """
-        Flush data.
-        """
-        raise NotImplementedError()
-
 
 TAINTED_MSG = [
     "proprietary module was loaded",

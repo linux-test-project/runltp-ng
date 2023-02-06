@@ -40,9 +40,6 @@ class Printer(IOBuffer):
         else:
             ltp.events.fire("sut_stdout_line", self._sut.name, data)
 
-    def flush(self) -> None:
-        pass
-
 
 class Session:
     """

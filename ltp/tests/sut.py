@@ -24,9 +24,6 @@ class Printer(IOBuffer):
     def write(self, data: str) -> None:
         print(data, end="")
 
-    def flush(self):
-        pass
-
 
 @pytest.fixture
 def sut():
