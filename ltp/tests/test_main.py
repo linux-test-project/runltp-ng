@@ -70,6 +70,9 @@ class TestMain:
                 "    @property\n"
                 "    def name(self) -> str:\n"
                 f"        return 'mysut{index}'\n"
+                "    @property\n"
+                "    def config_help(self) -> dict:\n"
+                "        return  {'myhelp': 'help'}\n"
             )
 
         ltp.main._discover_sut(str(tmpdir))

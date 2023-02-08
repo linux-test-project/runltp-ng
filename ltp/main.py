@@ -134,7 +134,15 @@ def _discover_sut(folder: str) -> list:
                 continue
 
             if issubclass(klass, SUT):
-                LOADED_SUT.append(klass())
+                obj = klass()
+                try:
+                    # pylint: disable=pointless-statement
+                    obj.name
+                    obj.config_help
+                except NotImplementedError:
+                    continue
+
+                LOADED_SUT.append(obj)
 
     if len(LOADED_SUT) > 0:
         LOADED_SUT.sort(key=lambda x: x.name)
