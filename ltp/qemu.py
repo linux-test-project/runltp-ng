@@ -114,7 +114,7 @@ class QemuSUT(SUT):
             params.append("-device virtconsole,chardev=tty")
             params.append("-device virtserialport,chardev=transport")
         else:
-            raise NotImplementedError(
+            raise SUTError(
                 f"Unsupported serial device type {self._serial_type}")
 
         _, transport_file = self._get_transport()
