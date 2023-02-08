@@ -1,7 +1,7 @@
 """
 .. module:: qemu
     :platform: Linux
-    :synopsis: module containing qemu SUT implementation
+    :synopsis: module containing the base for qemu SUT implementation
 
 .. moduleauthor:: Andrea Cervesato <andrea.cervesato@suse.com>
 """
@@ -11,7 +11,6 @@ import time
 import signal
 import select
 import string
-import shutil
 import secrets
 import logging
 import threading
@@ -25,12 +24,9 @@ from ltp.utils import Timeout
 from ltp.utils import LTPTimeoutError
 
 
-# pylint: disable=too-many-instance-attributes
-class QemuSUT(SUT):
+class QemuBase(SUT):
     """
-    Qemu SUT spawn a new VM using qemu and execute commands inside it.
-    This SUT implementation can be used to run commands inside
-    a protected, virtualized environment.
+    This is a base class for qemu based SUT implementations.
     """
 
     def __init__(self) -> None:
@@ -38,25 +34,31 @@ class QemuSUT(SUT):
         self._comm_lock = threading.Lock()
         self._cmd_lock = threading.Lock()
         self._fetch_lock = threading.Lock()
-        self._tmpdir = None
-        self._env = None
-        self._cwd = None
         self._proc = None
         self._poller = None
         self._stop = False
         self._logged_in = False
         self._last_pos = 0
-        self._image = None
-        self._image_overlay = None
-        self._ro_image = None
-        self._password = None
-        self._ram = None
-        self._smp = None
-        self._virtfs = None
-        self._serial_type = None
-        self._qemu_cmd = None
-        self._opts = None
         self._last_read = ""
+
+    def _get_command(self) -> str:
+        """
+        Return the full qemu command to execute.
+        """
+        raise NotImplementedError()
+
+    def _login(self, timeout: float, iobuffer: IOBuffer) -> None:
+        """
+        Method that implements login after starting the qemu process.
+        """
+        raise NotImplementedError()
+
+    def _get_transport(self) -> tuple:
+        """
+        Return a couple of transport_dev and transport_file used by
+        qemu instance for transport configuration.
+        """
+        raise NotImplementedError()
 
     @staticmethod
     def _generate_string(length: int = 10) -> str:
@@ -66,144 +68,6 @@ class QemuSUT(SUT):
         out = ''.join(secrets.choice(string.ascii_letters + string.digits)
                       for _ in range(length))
         return out
-
-    def _get_transport(self) -> str:
-        """
-        Return a couple of transport_dev and transport_file used by
-        qemu instance for transport configuration.
-        """
-        pid = os.getpid()
-        transport_file = os.path.join(self._tmpdir, f"transport-{pid}")
-        transport_dev = ""
-
-        if self._serial_type == "isa":
-            transport_dev = "/dev/ttyS1"
-        elif self._serial_type == "virtio":
-            transport_dev = "/dev/vport1p1"
-
-        return transport_dev, transport_file
-
-    def _get_command(self) -> str:
-        """
-        Return the full qemu command to execute.
-        """
-        pid = os.getpid()
-        tty_log = os.path.join(self._tmpdir, f"ttyS0-{pid}.log")
-
-        image = self._image
-        if self._image_overlay:
-            shutil.copyfile(
-                self._image,
-                self._image_overlay)
-            image = self._image_overlay
-
-        params = []
-        params.append("-enable-kvm")
-        params.append("-display none")
-        params.append(f"-m {self._ram}")
-        params.append(f"-smp {self._smp}")
-        params.append("-device virtio-rng-pci")
-        params.append(f"-drive if=virtio,cache=unsafe,file={image}")
-        params.append(f"-chardev stdio,id=tty,logfile={tty_log}")
-
-        if self._serial_type == "isa":
-            params.append("-serial chardev:tty")
-            params.append("-serial chardev:transport")
-        elif self._serial_type == "virtio":
-            params.append("-device virtio-serial")
-            params.append("-device virtconsole,chardev=tty")
-            params.append("-device virtserialport,chardev=transport")
-        else:
-            raise SUTError(
-                f"Unsupported serial device type {self._serial_type}")
-
-        _, transport_file = self._get_transport()
-        params.append(f"-chardev file,id=transport,path={transport_file}")
-
-        if self._ro_image:
-            params.append(
-                "-drive read-only,"
-                "if=virtio,"
-                "cache=unsafe,"
-                f"file={self._ro_image}")
-
-        if self._virtfs:
-            params.append(
-                "-virtfs local,"
-                f"path={self._virtfs},"
-                "mount_tag=host0,"
-                "security_model=mapped-xattr,"
-                "readonly=on")
-
-        if self._opts:
-            params.append(self._opts)
-
-        cmd = f"{self._qemu_cmd} {' '.join(params)}"
-
-        return cmd
-
-    def setup(self, **kwargs: dict) -> None:
-        self._logger.info("Initialize SUT")
-
-        self._env = kwargs.get("env", None)
-        self._cwd = kwargs.get("cwd", None)
-        self._tmpdir = kwargs.get("tmpdir", None)
-        self._image = kwargs.get("image", None)
-        self._image_overlay = kwargs.get("image_overlay", None)
-        self._ro_image = kwargs.get("ro_image", None)
-        self._password = kwargs.get("password", "root")
-        self._ram = kwargs.get("ram", "2G")
-        self._smp = kwargs.get("smp", "2")
-        self._virtfs = kwargs.get("virtfs", None)
-        self._serial_type = kwargs.get("serial", "isa")
-        self._opts = kwargs.get("options", None)
-
-        system = kwargs.get("system", "x86_64")
-        self._qemu_cmd = f"qemu-system-{system}"
-
-        if not self._tmpdir or not os.path.isdir(self._tmpdir):
-            raise SUTError(
-                f"Temporary directory doesn't exist: {self._tmpdir}")
-
-        if not self._image or not os.path.isfile(self._image):
-            raise SUTError(
-                f"Image location doesn't exist: {self._image}")
-
-        if self._ro_image and not os.path.isfile(self._ro_image):
-            raise SUTError(
-                f"Read-only image location doesn't exist: {self._ro_image}")
-
-        if not self._ram:
-            raise SUTError("RAM is not defined")
-
-        if not self._smp:
-            raise SUTError("CPU is not defined")
-
-        if self._virtfs and not os.path.isdir(self._virtfs):
-            raise SUTError(
-                f"Virtual FS directory doesn't exist: {self._virtfs}")
-
-        if self._serial_type not in ["isa", "virtio"]:
-            raise SUTError("Serial protocol must be isa or virtio")
-
-    @property
-    def config_help(self) -> dict:
-        return {
-            "image": "qcow2 image location",
-            "image_overlay": "image_overlay: image copy location",
-            "password": "root password (default: root)",
-            "system": "system architecture (default: x86_64)",
-            "ram": "RAM of the VM (default: 2G)",
-            "smp": "number of CPUs (default: 2)",
-            "serial": "type of serial protocol. isa|virtio (default: isa)",
-            "virtfs": "directory to mount inside VM",
-            "ro_image": "path of the image that will exposed as read only",
-            "options": "user defined options",
-        }
-
-    @property
-    def name(self) -> str:
-        return "qemu"
 
     @property
     def is_running(self) -> bool:
@@ -470,9 +334,6 @@ class QemuSUT(SUT):
             self,
             timeout: float = 3600,
             iobuffer: IOBuffer = None) -> None:
-        if not shutil.which(self._qemu_cmd):
-            raise SUTError(f"Command not found: {self._qemu_cmd}")
-
         if self.is_running:
             raise SUTError("Virtual machine is already running")
 
@@ -503,48 +364,9 @@ class QemuSUT(SUT):
                 select.POLLERR)
 
             try:
-                self._wait_for("login:", timeout, iobuffer)
-                self._write_stdin("root\n")
-
-                if self._password:
-                    self._wait_for("Password:", 5, iobuffer)
-                    self._write_stdin(f"{self._password}\n")
-
-                time.sleep(0.2)
-
-                self._wait_for("#", 5, iobuffer)
-                time.sleep(0.2)
-
-                self._write_stdin("stty -echo; stty cols 1024\n")
-                self._wait_for("#", 5, None)
-
-                _, retcode, _ = self._exec("export PS1=''", 5, None)
-                if retcode != 0:
-                    raise SUTError("Can't setup prompt string")
-
-                if self._virtfs:
-                    _, retcode, _ = self._exec(
-                        "mount -t 9p -o trans=virtio host0 /mnt",
-                        10, None)
-                    if retcode != 0:
-                        raise SUTError("Failed to mount virtfs")
-
-                if self._cwd:
-                    _, retcode, _ = self._exec(f"cd {self._cwd}", 5, None)
-                    if retcode != 0:
-                        raise SUTError("Can't setup current working directory")
-
-                if self._env:
-                    for key, value in self._env.items():
-                        _, retcode, _ = self._exec(
-                            f"export {key}={value}",
-                            5, None)
-                        if retcode != 0:
-                            raise SUTError(f"Can't setup env {key}={value}")
-
+                self._login(timeout, iobuffer)
                 self._logged_in = True
-
-                self._logger.info("Virtual machine started")
+                self._logger.info("Logged inside virtual machine")
             except SUTError as err:
                 error = err
 
