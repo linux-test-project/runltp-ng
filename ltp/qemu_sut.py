@@ -35,6 +35,8 @@ class QemuSUT(QemuBase):
         self._virtfs = None
         self._serial_type = None
         self._opts = None
+        self._user = None
+        self._prompt = None
 
     @property
     def name(self) -> str:
@@ -45,6 +47,7 @@ class QemuSUT(QemuBase):
         return {
             "image": "qcow2 image location",
             "image_overlay": "image_overlay: image copy location",
+            "user": "username used to login. If empty, it won't be used (default: 'root')",
             "password": "root password (default: root)",
             "system": "system architecture (default: x86_64)",
             "ram": "RAM of the VM (default: 2G)",
@@ -53,6 +56,7 @@ class QemuSUT(QemuBase):
             "virtfs": "directory to mount inside VM",
             "ro_image": "path of the image that will exposed as read only",
             "options": "user defined options",
+            "first_prompt": "first shell prompt string (default: '#')",
         }
 
     def _get_transport(self) -> str:
@@ -131,8 +135,9 @@ class QemuSUT(QemuBase):
         return cmd
 
     def _login(self, timeout: float, iobuffer: IOBuffer) -> None:
-        self._wait_for("login:", timeout, iobuffer)
-        self._write_stdin("root\n")
+        if self._user:
+            self._wait_for("login:", timeout, iobuffer)
+            self._write_stdin(f"{self._user}\n")
 
         if self._password:
             self._wait_for("Password:", 5, iobuffer)
@@ -140,11 +145,11 @@ class QemuSUT(QemuBase):
 
         time.sleep(0.2)
 
-        self._wait_for("#", 5, iobuffer)
+        self._wait_for(self._prompt, timeout, iobuffer)
         time.sleep(0.2)
 
         self._write_stdin("stty -echo; stty cols 1024\n")
-        self._wait_for("#", 5, None)
+        self._wait_for(self._prompt, 5, None)
 
         _, retcode, _ = self._exec("export PS1=''", 5, None)
         if retcode != 0:
@@ -179,12 +184,14 @@ class QemuSUT(QemuBase):
         self._image = kwargs.get("image", None)
         self._image_overlay = kwargs.get("image_overlay", None)
         self._ro_image = kwargs.get("ro_image", None)
+        self._user = kwargs.get("user", "root")
         self._password = kwargs.get("password", "root")
         self._ram = kwargs.get("ram", "2G")
         self._smp = kwargs.get("smp", "2")
         self._virtfs = kwargs.get("virtfs", None)
         self._serial_type = kwargs.get("serial", "isa")
         self._opts = kwargs.get("options", None)
+        self._prompt = kwargs.get("first_prompt", "#")
 
         system = kwargs.get("system", "x86_64")
         self._qemu_cmd = f"qemu-system-{system}"
@@ -216,3 +223,6 @@ class QemuSUT(QemuBase):
 
         if self._serial_type not in ["isa", "virtio"]:
             raise SUTError("Serial protocol must be isa or virtio")
+
+        if not self._prompt:
+            raise SUTError("first_prompt is not defined")
