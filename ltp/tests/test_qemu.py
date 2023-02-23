@@ -3,7 +3,7 @@ Test SUT implementations.
 """
 import os
 import pytest
-from ltp.qemu_sut import QemuSUT
+from ltp.qemu import QemuSUT
 from ltp.sut import KernelPanicError
 from ltp.tests.sut import _TestSUT
 from ltp.tests.sut import Printer
