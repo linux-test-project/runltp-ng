@@ -11,6 +11,8 @@
 import os
 import sys
 
+ASYNC_RUN = os.environ.get("ASYNC_RUN", None)
+
 # include ltp library
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 sys.path.insert(0, os.path.abspath(os.path.join(
@@ -19,5 +21,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(
 ))
 
 if __name__ == "__main__":
-    import ltp.main
-    ltp.main.run()
+    if ASYNC_RUN:
+        import altp.main
+        altp.main.run()
+    else:
+        import ltp.main
+        ltp.main.run()
