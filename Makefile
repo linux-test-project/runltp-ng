@@ -12,8 +12,10 @@ INSTALL_DIR		:= $(BASE_DIR)/runltp-ng.d
 
 install:
 	mkdir -p $(INSTALL_DIR)/ltp
+	mkdir -p $(INSTALL_DIR)/altp
 
 	install -m 00644 $(top_srcdir)/tools/runltp-ng/ltp/*.py $(INSTALL_DIR)/ltp
+	install -m 00644 $(top_srcdir)/tools/runltp-ng/ltp/*.py $(INSTALL_DIR)/altp
 	install -m 00775 $(top_srcdir)/tools/runltp-ng/runltp-ng $(BASE_DIR)/runltp-ng
 
 include $(top_srcdir)/include/mk/generic_leaf_target.mk
